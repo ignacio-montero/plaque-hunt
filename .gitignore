@@ -1,0 +1,29 @@
+node_modules/
+.next/
+out/
+build/
+
+# env & secrets
+.env*.local
+
+# SQLite database files
+*.db
+*.db-journal
+prisma/dev.db*
+
+# uploaded plaque photos (single-user local storage)
+/data/uploads/*
+!/data/uploads/.gitkeep
+
+# seed cache (downloaded Open Plaques dumps + per-person JSON)
+/data/cache/
+
+# OS / editor
+.DS_Store
+*.log
+
+# build artifacts
+*.tsbuildinfo
+
+# local Claude Code settings (machine-specific)
+.claude/settings.local.json

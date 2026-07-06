@@ -1,0 +1,45 @@
+// Blue Plaque Hunter — v1 schema. See docs/ARCHITECTURE.md §Data Model.
+// SQLite for the single-user local prototype; Prisma keeps a later Postgres swap cheap.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Plaque {
+  id              String   @id // Open Plaques source id (stored as string)
+  subjectName     String
+  inscriptionText String // full plaque text, used for OCR matching
+  profession      String? // raw primary_role_name; may be null. Long tail — grouped in tracker.
+  gender          String? // "male" / "female" from per-person enrichment; null if unknown/non-human
+  birthYear       Int?
+  deathYear       Int?
+  scheme          String // e.g. "English Heritage" / plaque colour scheme; filter target = blue
+  address         String
+  latitude        Float
+  longitude       Float
+
+  capture Capture? // a plaque is "captured" iff a related Capture row exists
+
+  @@index([latitude, longitude])
+}
+
+model Capture {
+  id              String   @id @default(cuid())
+  plaqueId        String   @unique // one capture per plaque for the single implicit user (blocks dupes)
+  photoPath       String
+  capturedAt      DateTime @default(now())
+  userLat         Float?
+  userLng         Float?
+  ocrRawText      String
+  matchConfidence Float
+  // one of: "top_match_accepted" | "runner_up_selected" | "manual_search"
+  // (SQLite has no enums; validate at the API layer)
+  matchMethod     String
+
+  plaque Plaque @relation(fields: [plaqueId], references: [id], onDelete: Cascade)
+}
