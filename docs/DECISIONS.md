@@ -2,6 +2,17 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-06 — Subject portraits in the detail panel
+Clicking a plaque now shows the subject's portrait. **Decision:** resolve portrait URLs once at
+seed time (Pass 3) and **hotlink** them (store the URL, don't download bytes) — matches how the app
+already loads OSM tiles, keeps the DB light, no serving route. Source cascade: Wikidata P18 (Commons
+FilePath) → Wikipedia REST summary thumbnail → null. **Why hotlink:** the app already needs internet
+at view-time (map tiles), and downloading ~1,300 files was overkill for a local prototype. Verified
+coverage **before building** (73% of clean QIDs have P18): **841/2,078 plaques** got a portrait.
+Frontend hides the image gracefully if a hotlinked URL fails. New `subject_image_url` field on the
+detail endpoint only (not the map list). **Gotcha discovered:** Wikimedia APIs return nothing
+without a descriptive `User-Agent`.
+
 ## 2026-07-06 — Security/correctness hardening after critic red-team
 Critic red-teamed the build; found 2 criticals + warnings (no XSS; traversal guards confirmed
 holding). All fixed and verified (**59 tests, tsc clean, build green**):

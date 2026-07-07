@@ -22,6 +22,7 @@ import {
   type RawPlaque,
   type RawPerson,
 } from "@/lib/openplaques";
+import { resolveSubjectImageUrlCached } from "@/lib/portraits";
 
 const CACHE_DIR = path.join(process.cwd(), "data", "cache");
 const DUMP_CACHE = path.join(CACHE_DIR, "open-plaques-london.json");
@@ -31,6 +32,11 @@ const DUMP_CACHE = path.join(CACHE_DIR, "open-plaques-london.json");
 // on a cold run; cached re-runs are near-instant.
 const ENRICH_CONCURRENCY = 4;
 const ENRICH_DELAY_MS = 120;
+
+// Portrait resolution (pass 3) is politer still: each person costs up to two
+// upstream requests (Wikidata + Wikipedia), and Wikimedia throttles hard.
+const PORTRAIT_CONCURRENCY = 3;
+const PORTRAIT_DELAY_MS = 150;
 
 async function main() {
   await fs.mkdir(CACHE_DIR, { recursive: true });
@@ -178,11 +184,77 @@ async function main() {
     }
   }
 
+  // ---- Pass 3: subject portraits ----------------------------------------
+  // Resolve one portrait per distinct first-person (Wikidata P18 → Wikipedia
+  // summary → null), then write it to that person's plaque rows. Every
+  // resolution is cached to data/cache/portrait-<id>.json, so re-runs and the
+  // per-person concurrency below only hit the network for un-resolved people.
+  console.log(
+    `Pass 3: resolving portraits for ${plaqueByFirstPerson.size} distinct subjects…`,
+  );
+
+  const portraitByPerson = new Map<string, string | null>();
+  const firstPersonIds = [...plaqueByFirstPerson.keys()];
+  let portraitFromCache = 0;
+  let portraitResolved = 0;
+
+  for (let i = 0; i < firstPersonIds.length; i += PORTRAIT_CONCURRENCY) {
+    const batch = firstPersonIds.slice(i, i + PORTRAIT_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (pid) => {
+        const person = persons.get(pid);
+        // Carry the openplaques id so the cache key is stable even if the
+        // person JSON omits its own id field.
+        const { url, cached } = await resolveSubjectImageUrlCached({
+          id: pid,
+          wikidata_id: person?.wikidata_id,
+          wikipedia_url: person?.wikipedia_url,
+        });
+        if (cached) portraitFromCache++;
+        else portraitResolved++;
+        return [pid, url] as const;
+      }),
+    );
+    for (const [pid, url] of results) portraitByPerson.set(pid, url);
+
+    // Throttle only between network-backed batches (cache-only runs skip this).
+    if (i + PORTRAIT_CONCURRENCY < firstPersonIds.length) {
+      await sleep(PORTRAIT_DELAY_MS);
+    }
+    if ((i / PORTRAIT_CONCURRENCY) % 25 === 0) {
+      process.stdout.write(
+        `  …${Math.min(i + PORTRAIT_CONCURRENCY, firstPersonIds.length)}/${firstPersonIds.length}\r`,
+      );
+    }
+  }
+  process.stdout.write("\n");
+
+  let plaquesWithPortrait = 0;
+  for (const [pid, plaqueIds] of plaqueByFirstPerson) {
+    const url = portraitByPerson.get(pid);
+    if (!url) continue;
+    for (const plaqueId of plaqueIds) {
+      try {
+        await prisma.plaque.update({
+          where: { id: plaqueId },
+          data: { subjectImageUrl: url },
+        });
+        plaquesWithPortrait++;
+      } catch {
+        // Plaque may have been skipped in pass 1 (no lat/lng or inscription).
+      }
+    }
+  }
+  console.log(
+    `Pass 3 done: ${portraitFromCache} from cache, ${portraitResolved} resolved live.`,
+  );
+
   const total = await prisma.plaque.count();
   console.log("\n=== Seed complete ===");
   console.log(`Plaques in DB:            ${total}`);
   console.log(`Enriched with gender:     ${enrichedGender}`);
   console.log(`Enriched with birth year: ${enrichedBirth}`);
+  console.log(`Plaques with portrait:    ${plaquesWithPortrait}`);
 }
 
 /** Load the bulk dump, from cache if present, else download + cache it. */

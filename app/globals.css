@@ -386,6 +386,29 @@ h3 {
   display: block;
 }
 
+/* Subject header: portrait beside the name/status */
+.subject-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.subject-head__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.subject-portrait {
+  flex: none;
+  width: 76px;
+  height: 76px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
 .kv {
   font-size: 14px;
   line-height: 1.5;

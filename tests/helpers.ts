@@ -10,6 +10,7 @@ export interface PlaqueSeed {
   gender?: string | null;
   birthYear?: number | null;
   deathYear?: number | null;
+  subjectImageUrl?: string | null;
   scheme?: string;
   address?: string;
   latitude: number;
@@ -26,6 +27,8 @@ export const FIXTURE_PLAQUES: PlaqueSeed[] = [
     gender: "female",
     birthYear: 1815,
     deathYear: 1852,
+    subjectImageUrl:
+      "https://commons.wikimedia.org/wiki/Special:FilePath/Ada_Lovelace.jpg?width=400",
     address: "12 St James's Square, London",
     latitude: 51.5074,
     longitude: -0.1341,
@@ -78,6 +81,7 @@ export async function seedPlaques(rows: PlaqueSeed[] = FIXTURE_PLAQUES) {
       gender: r.gender ?? null,
       birthYear: r.birthYear ?? null,
       deathYear: r.deathYear ?? null,
+      subjectImageUrl: r.subjectImageUrl ?? null,
       scheme: r.scheme ?? "English Heritage",
       address: r.address ?? "Somewhere, London",
       latitude: r.latitude,

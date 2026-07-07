@@ -76,6 +76,14 @@ person's JSON (`https://openplaques.org/people/<id>.json`) to read `sex`, `born_
 - ~88% have a birth year; gender is present for essentially all human subjects (non-human
   subjects like buildings return `sex: "object"` — treat as null).
 
+**Pass 3 — subject portraits.** For each plaque's primary person, resolve a portrait URL once and
+store it on `Plaque.subjectImageUrl` (hotlinked, not downloaded). Cascade: Wikidata **P18** →
+`https://commons.wikimedia.org/wiki/Special:FilePath/<file>?width=400`, else the **Wikipedia REST
+summary** thumbnail (`/api/rest_v1/page/summary/<title>`), else null. Requires a descriptive
+`User-Agent` on every Wikimedia request or they return nothing. Cached per person to
+`data/cache/portrait-<id>.json`. Coverage on the current dump: **841 / 2,078 plaques** (525 P18 +
+316 Wikipedia). See `lib/portraits.ts`.
+
 **Profession grouping.** `primary_role_name` has a long tail (~853 distinct values). Store the raw
 role on the Plaque, but the tracker aggregation groups to the top ~10–12 + "Other" (see API_SPEC
 `/api/tracker`).

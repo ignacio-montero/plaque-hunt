@@ -29,6 +29,7 @@ export async function GET(
     subject_name: plaque.subjectName,
     inscription_text: plaque.inscriptionText,
     profession: plaque.profession,
+    subject_image_url: plaque.subjectImageUrl,
     gender: plaque.gender,
     birth_year: plaque.birthYear,
     death_year: plaque.deathYear,

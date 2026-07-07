@@ -27,10 +27,13 @@ export interface RawPlaquePerson {
 
 /** A per-person JSON record fetched during enrichment (pass 2). */
 export interface RawPerson {
+  id?: number | string | null; // openplaques person id
   sex?: string | null; // "male" | "female" | "object" | ...
   born_in?: number | null;
   died_in?: number | null;
   type?: string | null; // "man" | "woman" | "object" | ...
+  wikidata_id?: string | null; // a QID like "Q177984", or garbage ("t")
+  wikipedia_url?: string | null; // e.g. https://en.wikipedia.org/wiki/Ada_Lovelace
 }
 
 /**

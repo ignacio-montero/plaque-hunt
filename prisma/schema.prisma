@@ -18,6 +18,7 @@ model Plaque {
   gender          String? // "male" / "female" from per-person enrichment; null if unknown/non-human
   birthYear       Int?
   deathYear       Int?
+  subjectImageUrl String? // portrait URL (Wikimedia/Wikipedia), resolved once at seed time; null if none found
   scheme          String // e.g. "English Heritage" / plaque colour scheme; filter target = blue
   address         String
   latitude        Float

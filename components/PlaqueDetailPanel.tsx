@@ -21,11 +21,14 @@ export default function PlaqueDetailPanel({ plaqueId, onClose }: Props) {
   const [status, setStatus] = useState<"loading" | "error" | "ready">(
     "loading",
   );
+  // Portraits are hotlinked from Wikimedia/Wikipedia; hide gracefully if one fails to load.
+  const [portraitFailed, setPortraitFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setStatus("loading");
     setDetail(null);
+    setPortraitFailed(false);
     fetch(`/api/plaques/${encodeURIComponent(plaqueId)}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -71,16 +74,27 @@ export default function PlaqueDetailPanel({ plaqueId, onClose }: Props) {
 
       {status === "ready" && detail && (
         <div className="stack">
-          <div>
-            <span
-              className={`badge ${
-                detail.captured ? "badge--captured" : "badge--uncaptured"
-              }`}
-            >
-              {detail.captured ? "Captured" : "Not captured"}
-            </span>
-            <h2 style={{ margin: "8px 0 2px" }}>{detail.subject_name}</h2>
-            {life && <div className="muted">{life}</div>}
+          <div className="subject-head">
+            {detail.subject_image_url && !portraitFailed && (
+              <img
+                className="subject-portrait"
+                src={detail.subject_image_url}
+                alt={`Portrait of ${detail.subject_name}`}
+                loading="lazy"
+                onError={() => setPortraitFailed(true)}
+              />
+            )}
+            <div className="subject-head__text">
+              <span
+                className={`badge ${
+                  detail.captured ? "badge--captured" : "badge--uncaptured"
+                }`}
+              >
+                {detail.captured ? "Captured" : "Not captured"}
+              </span>
+              <h2 style={{ margin: "8px 0 2px" }}>{detail.subject_name}</h2>
+              {life && <div className="muted">{life}</div>}
+            </div>
           </div>
 
           {detail.captured && detail.capture?.photo_path && (

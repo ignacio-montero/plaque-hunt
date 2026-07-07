@@ -32,6 +32,7 @@ export interface PlaqueDetail {
   gender: string | null;
   birth_year: number | null;
   death_year: number | null;
+  subject_image_url: string | null;
   scheme: string;
   address: string;
   latitude: number;

@@ -38,6 +38,8 @@ describe("GET /api/plaques", () => {
     });
     // list endpoint must NOT leak heavy detail fields
     expect(ada).not.toHaveProperty("inscription_text");
+    // portrait is a detail-only field; keep the map payload light
+    expect(ada).not.toHaveProperty("subject_image_url");
 
     const babbage = plaques.find((p: any) => p.id === "opl-babbage");
     expect(babbage.captured).toBe(false);
@@ -59,9 +61,20 @@ describe("GET /api/plaques/:id", () => {
       gender: "female",
       birth_year: 1815,
       death_year: 1852,
+      subject_image_url:
+        "https://commons.wikimedia.org/wiki/Special:FilePath/Ada_Lovelace.jpg?width=400",
       captured: false,
       capture: null,
     });
+  });
+
+  it("subject_image_url passes through as null when no portrait resolved", async () => {
+    const res = await DETAIL(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "opl-unknown" }),
+    });
+    const body = await res.json();
+    expect(body).toHaveProperty("subject_image_url");
+    expect(body.subject_image_url).toBeNull();
   });
 
   it("includes the capture object when captured", async () => {

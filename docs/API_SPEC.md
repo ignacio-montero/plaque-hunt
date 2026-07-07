@@ -53,6 +53,7 @@ Full detail for one plaque (used by the marker popup / detail panel).
   "gender": "female",
   "birth_year": 1815,
   "death_year": 1852,
+  "subject_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Ada%20Lovelace.jpg?width=400",
   "scheme": "English Heritage",
   "address": "12 St James's Square, London",
   "latitude": 51.5074,
@@ -65,7 +66,9 @@ Full detail for one plaque (used by the marker popup / detail panel).
   }
 }
 ```
-`capture` is `null` when not yet captured.
+`capture` is `null` when not yet captured. `subject_image_url` is `null` when no portrait was
+resolved for the subject (returned only by the detail endpoint, not the map list, to keep the map
+payload light).
 
 ---
 

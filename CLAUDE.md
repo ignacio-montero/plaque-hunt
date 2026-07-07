@@ -7,7 +7,7 @@ on a multi-user native app.
 
 ## Current state
 **v1 core loop is built, integrated, tested, and hardened.** Full `npm run build` passes; `npm test`
-= **59 Vitest tests, all passing**; `npx tsc --noEmit` clean. DB seeded. A critic red-team pass ran
+= **70 Vitest tests, all passing**; `npx tsc --noEmit` clean. DB seeded. A critic red-team pass ran
 and all findings are fixed (upload size cap + image sniff + OCR concurrency limit, confirm-race →
 409, nosniff, temp reaper, value clamps, seed validate-before-cache). Not yet run against real
 plaque photos (the one remaining open risk — see Next step).
@@ -27,7 +27,8 @@ Backend (all under `app/api/**`, `lib/`, `prisma/seed.ts`):
 Frontend (all under `app/` + `components/`, no UI framework — plain CSS in `app/globals.css`):
 - `app/page.tsx` → `components/MapView.tsx` (Leaflet, `ssr:false`) — London map, one marker per
   plaque, blue = not captured / green = captured, click → `components/PlaqueDetailPanel.tsx`.
-  Reads `?plaque=<id>` deep-link to auto-open a plaque.
+  Reads `?plaque=<id>` deep-link to auto-open a plaque. Detail panel shows the subject's **portrait**
+  (`subject_image_url`, hotlinked from Wikimedia/Wikipedia, resolved at seed Pass 3; 841/2078 have one).
 - `app/capture/page.tsx` → `components/CaptureFlow.tsx` — file picker + `navigator.geolocation`,
   POST `/api/capture`, ranked-candidate confirm/correct (+ `components/ManualSearch.tsx`),
   POST `/api/capture/confirm`, 409/422 handling, DELETE undo.
