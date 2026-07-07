@@ -277,7 +277,12 @@ h3 {
   min-height: 0;
 }
 
-.leaflet-container {
+/* Absolutely fill the (position: relative) .map-wrap. A plain height:100%
+   fails to resolve against a flex-item parent whose height comes from flex-grow,
+   collapsing the map to 0px; inset:0 sidesteps that entirely. */
+.map-wrap .leaflet-container {
+  position: absolute;
+  inset: 0;
   height: 100%;
   width: 100%;
 }
