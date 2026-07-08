@@ -2,6 +2,19 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-08 — "100 most famous" plaques as gold stars
+Map renders the top-100 most-notable plaques as gold stars instead of blue circles. **Fame metric:
+Wikidata sitelinks count** (number of language-Wikipedia editions per subject) — chosen over the
+user's initial idea of raw Wikipedia article length because sitelinks is a more robust, less-gameable
+notability proxy. Seed **Pass 4** (`lib/fame.ts`, cached) scores every subject, ranks all plaques,
+and sets `fameRank`/`fameScore`; `GET /api/plaques` exposes `famous:boolean`. Top-10 sanity check
+(Marx, Gandhi, Darwin, Mozart, Van Gogh, Chaplin) confirms the metric works. **Known trade-off:**
+ranking is per-plaque, so a person with multiple London plaques occupies multiple slots (~80 distinct
+people in the 100) — kept because the ask was "100 famous *plaques*" and it's correct for the map.
+Also fixed this session: dev-server `.next` corruption, the `?plaque=` deep-link (useState→useEffect),
+and portrait retry-on-transient. **Caveat:** fame code shipped without unit tests (agent hit a usage
+limit) — logged in NEXT_STEPS.
+
 ## 2026-07-06 — Subject portraits in the detail panel
 Clicking a plaque now shows the subject's portrait. **Decision:** resolve portrait URLs once at
 seed time (Pass 3) and **hotlink** them (store the URL, don't download bytes) — matches how the app

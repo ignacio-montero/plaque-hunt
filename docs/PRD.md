@@ -23,6 +23,7 @@ system figures out which plaque it is → it's marked captured → stats update.
 - [ ] Markers visually distinguish captured vs. not-yet-captured plaques.
 - [ ] User can click a marker to see plaque detail (subject, inscription text, address, captured status, photo if captured).
 - [ ] Plaque detail shows a portrait of the subject when one is available (resolved once at seed time from Wikidata/Wikipedia; ~841/2,078 have one; graceful fallback when absent).
+- [ ] The 100 most-famous plaques (by Wikidata sitelinks count) render as gold stars on the map instead of blue circles, with a legend entry.
 - [ ] User can upload a photo via a form (standard file picker — no live-camera requirement in v1).
 - [ ] On upload, browser geolocation is requested (if granted) and sent with the photo.
 - [ ] Server runs OCR on the uploaded photo to extract raw text.

@@ -27,8 +27,9 @@ Backend (all under `app/api/**`, `lib/`, `prisma/seed.ts`):
 Frontend (all under `app/` + `components/`, no UI framework — plain CSS in `app/globals.css`):
 - `app/page.tsx` → `components/MapView.tsx` (Leaflet, `ssr:false`) — London map, one marker per
   plaque, blue = not captured / green = captured, click → `components/PlaqueDetailPanel.tsx`.
-  Reads `?plaque=<id>` deep-link to auto-open a plaque. Detail panel shows the subject's **portrait**
-  (`subject_image_url`, hotlinked from Wikimedia/Wikipedia, resolved at seed Pass 3; 841/2078 have one).
+  Reads `?plaque=<id>` deep-link to auto-open a plaque (applied via useEffect). Detail panel shows the
+  subject's **portrait** (`subject_image_url`, hotlinked, seed Pass 3; 841/2078). The **100 most-famous
+  plaques** (Wikidata sitelinks, seed Pass 4; `famous` flag) render as **gold stars** not blue circles.
 - `app/capture/page.tsx` → `components/CaptureFlow.tsx` — file picker + `navigator.geolocation`,
   POST `/api/capture`, ranked-candidate confirm/correct (+ `components/ManualSearch.tsx`),
   POST `/api/capture/confirm`, 409/422 handling, DELETE undo.

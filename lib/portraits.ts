@@ -15,6 +15,45 @@ export const USER_AGENT =
 
 const CACHE_DIR = path.join(process.cwd(), "data", "cache");
 
+/**
+ * A fetch wrapper that retries on transient failures — HTTP 429/5xx and network
+ * errors — with a short backoff, before giving up. A genuine 404 (or any other
+ * non-transient non-ok status) is returned as-is on the first try so the caller
+ * can cache a null result without wasted retries. This mirrors the enrichment
+ * retry approach so a momentary Wikimedia hiccup doesn't permanently cache
+ * "no portrait".
+ */
+async function fetchWithRetry(
+  url: string,
+  fetchImpl: typeof fetch,
+  { retries = 2, backoffMs = 300 }: { retries?: number; backoffMs?: number } = {},
+): Promise<Response | null> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetchImpl(url, {
+        headers: { "User-Agent": USER_AGENT },
+      });
+      // Retry only on transient server-side statuses (rate-limit / 5xx).
+      if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+        await sleep(backoffMs * (attempt + 1));
+        continue;
+      }
+      return res;
+    } catch {
+      // Network error — transient; retry until we run out of attempts.
+      if (attempt < retries) {
+        await sleep(backoffMs * (attempt + 1));
+        continue;
+      }
+      return null;
+    }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Minimal person shape we need for portrait resolution. */
 export interface PortraitPerson {
   /** openplaques person id (used only for the cache filename). */
@@ -109,8 +148,8 @@ async function imageFromWikidataP18(
     `https://www.wikidata.org/w/api.php?action=wbgetclaims` +
     `&entity=${encodeURIComponent(qid)}&property=P18&format=json`;
   try {
-    const res = await fetchImpl(url, { headers: { "User-Agent": USER_AGENT } });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(url, fetchImpl);
+    if (!res || !res.ok) return null;
     const data = (await res.json()) as {
       claims?: {
         P18?: { mainsnak?: { datavalue?: { value?: unknown } } }[];
@@ -147,8 +186,8 @@ async function imageFromWikipediaSummary(
 
   const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${title}`;
   try {
-    const res = await fetchImpl(url, { headers: { "User-Agent": USER_AGENT } });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(url, fetchImpl);
+    if (!res || !res.ok) return null;
     const data = (await res.json()) as { thumbnail?: { source?: unknown } };
     const source = data.thumbnail?.source;
     return typeof source === "string" && source.trim() ? source : null;

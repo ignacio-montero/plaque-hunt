@@ -10,6 +10,8 @@ export interface PlaqueListItem {
   longitude: number;
   scheme: string;
   captured: boolean;
+  /** True for the ~100 "most famous" plaques. May be absent/false otherwise. */
+  famous?: boolean;
 }
 
 export interface PlaquesResponse {

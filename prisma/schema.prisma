@@ -19,6 +19,8 @@ model Plaque {
   birthYear       Int?
   deathYear       Int?
   subjectImageUrl String? // portrait URL (Wikimedia/Wikipedia), resolved once at seed time; null if none found
+  fameRank        Int? // 1..100 for the most-famous plaques (by Wikidata sitelinks); null otherwise
+  fameScore       Int? // raw fame signal (sitelinks count) used to compute the ranking; for debugging/re-ranking
   scheme          String // e.g. "English Heritage" / plaque colour scheme; filter target = blue
   address         String
   latitude        Float

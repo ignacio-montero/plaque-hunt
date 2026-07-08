@@ -23,6 +23,7 @@ import {
   type RawPerson,
 } from "@/lib/openplaques";
 import { resolveSubjectImageUrlCached } from "@/lib/portraits";
+import { resolveFameScoreCached } from "@/lib/fame";
 
 const CACHE_DIR = path.join(process.cwd(), "data", "cache");
 const DUMP_CACHE = path.join(CACHE_DIR, "open-plaques-london.json");
@@ -37,6 +38,12 @@ const ENRICH_DELAY_MS = 120;
 // upstream requests (Wikidata + Wikipedia), and Wikimedia throttles hard.
 const PORTRAIT_CONCURRENCY = 3;
 const PORTRAIT_DELAY_MS = 150;
+
+// Fame ranking (pass 4): one Wikidata sitelinks request per distinct subject.
+// Same polite budget as portraits.
+const FAME_CONCURRENCY = 3;
+const FAME_DELAY_MS = 150;
+const FAMOUS_TOP_N = 100;
 
 async function main() {
   await fs.mkdir(CACHE_DIR, { recursive: true });
@@ -249,12 +256,106 @@ async function main() {
     `Pass 3 done: ${portraitFromCache} from cache, ${portraitResolved} resolved live.`,
   );
 
+  // ---- Pass 4: fame ranking ---------------------------------------------
+  // Resolve a fame score (Wikidata sitelinks count) per distinct subject, then
+  // rank all plaques and flag the top 100 as "famous" (gold stars on the map).
+  // Cached to data/cache/fame-<id>.json, so re-runs only hit the network for
+  // subjects not yet scored.
+  console.log(
+    `Pass 4: scoring fame for ${plaqueByFirstPerson.size} distinct subjects…`,
+  );
+
+  const fameByPerson = new Map<string, number | null>();
+  let fameFromCache = 0;
+  let fameResolved = 0;
+
+  for (let i = 0; i < firstPersonIds.length; i += FAME_CONCURRENCY) {
+    const batch = firstPersonIds.slice(i, i + FAME_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (pid) => {
+        const person = persons.get(pid);
+        const { score, cached } = await resolveFameScoreCached({
+          id: pid,
+          wikidata_id: person?.wikidata_id,
+        });
+        if (cached) fameFromCache++;
+        else fameResolved++;
+        return [pid, score] as const;
+      }),
+    );
+    for (const [pid, score] of results) fameByPerson.set(pid, score);
+
+    if (i + FAME_CONCURRENCY < firstPersonIds.length) {
+      await sleep(FAME_DELAY_MS);
+    }
+    if ((i / FAME_CONCURRENCY) % 25 === 0) {
+      process.stdout.write(
+        `  …${Math.min(i + FAME_CONCURRENCY, firstPersonIds.length)}/${firstPersonIds.length}\r`,
+      );
+    }
+  }
+  process.stdout.write("\n");
+
+  // Reset any prior ranking so re-runs are idempotent.
+  await prisma.plaque.updateMany({ data: { fameRank: null, fameScore: null } });
+
+  // Persist each scored plaque's raw fame score; collect for ranking.
+  const plaqueFame: { plaqueId: string; score: number }[] = [];
+  for (const [pid, plaqueIds] of plaqueByFirstPerson) {
+    const score = fameByPerson.get(pid);
+    if (typeof score !== "number" || score <= 0) continue;
+    for (const plaqueId of plaqueIds) {
+      plaqueFame.push({ plaqueId, score });
+      try {
+        await prisma.plaque.update({
+          where: { id: plaqueId },
+          data: { fameScore: score },
+        });
+      } catch {
+        // plaque skipped in pass 1
+      }
+    }
+  }
+
+  // Rank by score desc (deterministic tie-break by id) and flag the top 100.
+  plaqueFame.sort(
+    (a, b) => b.score - a.score || a.plaqueId.localeCompare(b.plaqueId),
+  );
+  const topFamous = plaqueFame.slice(0, 100);
+  let rank = 0;
+  for (const { plaqueId } of topFamous) {
+    rank++;
+    try {
+      await prisma.plaque.update({
+        where: { id: plaqueId },
+        data: { fameRank: rank },
+      });
+    } catch {
+      // ignore
+    }
+  }
+  console.log(
+    `Pass 4 done: ${fameFromCache} from cache, ${fameResolved} resolved live; ${topFamous.length} plaques flagged famous.`,
+  );
+
+  const top10 = await prisma.plaque.findMany({
+    where: { fameRank: { not: null } },
+    orderBy: { fameRank: "asc" },
+    take: 10,
+    select: { fameRank: true, subjectName: true, fameScore: true },
+  });
+  console.log("Top 10 famous subjects (by Wikidata sitelinks):");
+  for (const t of top10) {
+    console.log(`  ${t.fameRank}. ${t.subjectName} (${t.fameScore} sitelinks)`);
+  }
+
   const total = await prisma.plaque.count();
   console.log("\n=== Seed complete ===");
   console.log(`Plaques in DB:            ${total}`);
   console.log(`Enriched with gender:     ${enrichedGender}`);
   console.log(`Enriched with birth year: ${enrichedBirth}`);
   console.log(`Plaques with portrait:    ${plaquesWithPortrait}`);
+  console.log(`Famous plaques (top 100): ${topFamous.length}`);
 }
 
 /** Load the bulk dump, from cache if present, else download + cache it. */

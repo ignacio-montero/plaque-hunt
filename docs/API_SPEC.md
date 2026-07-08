@@ -29,12 +29,14 @@ Returns all seeded plaques for the map, with capture status.
       "latitude": 51.5074,
       "longitude": -0.1341,
       "scheme": "English Heritage",
-      "captured": true
+      "captured": true,
+      "famous": true
     }
   ]
 }
 ```
-Notes: list endpoint returns the lightweight fields the map needs. Full inscription/detail comes
+Notes: list endpoint returns the lightweight fields the map needs. `famous` is `true` for the
+top-100 most-notable plaques (by Wikidata sitelinks) — the map renders these as gold stars. Full inscription/detail comes
 from the detail endpoint to keep the map payload small.
 
 ---

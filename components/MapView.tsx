@@ -10,7 +10,24 @@ import PlaqueDetailPanel from "./PlaqueDetailPanel";
 // London (roughly Charing Cross).
 const LONDON_CENTER: [number, number] = [51.5074, -0.1278];
 
-function markerIcon(captured: boolean): L.DivIcon {
+// A five-pointed star path, drawn in a 24x24 viewBox. Inline SVG keeps the shape
+// crisp at any marker size and lets us stroke a subtle outline so gold reads on
+// the pale map tiles.
+const STAR_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 1.6l3.09 6.26 6.91 1-5 4.87 1.18 6.87L12 17.27l-6.18 3.25L7 13.73l-5-4.87 6.91-1z"/></svg>`;
+
+function markerIcon(captured: boolean, famous: boolean): L.DivIcon {
+  if (famous) {
+    // Star shape signals fame regardless of capture state; the --captured
+    // variant only tints it so progress is still legible.
+    return L.divIcon({
+      className: "",
+      html: `<div class="plaque-star${
+        captured ? " plaque-star--captured" : ""
+      }">${STAR_SVG}</div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+  }
   return L.divIcon({
     className: "", // suppress Leaflet's default divIcon styling
     html: `<div class="plaque-marker plaque-marker--${
@@ -27,9 +44,15 @@ export default function MapView() {
   const searchParams = useSearchParams();
   const [plaques, setPlaques] = useState<PlaqueListItem[]>([]);
   const [state, setState] = useState<LoadState>("loading");
-  const [selectedId, setSelectedId] = useState<string | null>(
-    searchParams.get("plaque"),
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Apply the ?plaque=<id> deep-link after hydration. Reading searchParams in the
+  // useState initializer misses on first static render (params are empty then), so the
+  // panel wouldn't open on in-app navigation — an effect keyed on the param is reliable.
+  const deepLinkId = searchParams.get("plaque");
+  useEffect(() => {
+    if (deepLinkId) setSelectedId(deepLinkId);
+  }, [deepLinkId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +108,9 @@ export default function MapView() {
           <Marker
             key={p.id}
             position={[p.latitude, p.longitude]}
-            icon={markerIcon(p.captured)}
+            icon={markerIcon(p.captured, !!p.famous)}
+            // Famous stars ride above circles so they aren't buried in dense clusters.
+            zIndexOffset={p.famous ? 1000 : 0}
             title={p.subject_name}
             eventHandlers={{ click: () => setSelectedId(p.id) }}
           />
@@ -112,6 +137,10 @@ export default function MapView() {
             <div className="legend-row">
               <span className="legend-swatch plaque-marker--captured" />
               Captured
+            </div>
+            <div className="legend-row">
+              <span className="legend-swatch legend-swatch--star" aria-hidden />
+              Famous (Top 100)
             </div>
             <div className="legend-row" style={{ marginTop: 6 }}>
               <strong>

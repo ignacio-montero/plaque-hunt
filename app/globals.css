@@ -5,6 +5,7 @@
   --plaque-blue: #1f5fa8;
   --plaque-blue-dark: #16467c;
   --captured-green: #2f9e5f;
+  --famous-gold: #f5b301;
   --bg: #f6f7f9;
   --surface: #ffffff;
   --border: #e2e5ea;
@@ -319,6 +320,29 @@ h3 {
   flex: none;
 }
 
+/* Gold star swatch for the Famous legend row. Overrides the circular swatch. */
+.legend-swatch--star {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--famous-gold);
+  filter: drop-shadow(0 0 0.5px #7a5200) drop-shadow(0 0 0.5px #7a5200);
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+
 /* Custom divIcon markers */
 .plaque-marker {
   width: 16px;
@@ -334,6 +358,36 @@ h3 {
 
 .plaque-marker--uncaptured {
   background: var(--plaque-blue);
+}
+
+/* Gold star markers for the ~100 most famous plaques. The inline SVG is filled
+   gold with a subtle outline so it reads against pale map tiles. */
+.plaque-star {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.plaque-star svg {
+  display: block;
+}
+
+.plaque-star svg path {
+  fill: var(--famous-gold);
+  stroke: #7a5200;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+/* Captured-and-famous: keep the star shape (fame signal) but ring it green so
+   capture progress is still legible. */
+.plaque-star--captured svg path {
+  stroke: var(--captured-green);
+  stroke-width: 2;
 }
 
 /* ---- Detail panel (slides over map on mobile) ---- */

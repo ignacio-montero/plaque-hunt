@@ -84,6 +84,11 @@ summary** thumbnail (`/api/rest_v1/page/summary/<title>`), else null. Requires a
 `data/cache/portrait-<id>.json`. Coverage on the current dump: **841 / 2,078 plaques** (525 P18 +
 316 Wikipedia). See `lib/portraits.ts`.
 
+**Pass 4 — fame ranking.** Score each subject by **Wikidata sitelinks count**
+(`wbgetentities&props=sitelinks`, cached to `data/cache/fame-<id>.json`), rank all plaques, and set
+`fameRank` 1..100 on the top 100 (plus raw `fameScore`). Surfaced as `famous:boolean` on
+`GET /api/plaques`; the map draws these as gold stars. See `lib/fame.ts`.
+
 **Profession grouping.** `primary_role_name` has a long tail (~853 distinct values). Store the raw
 role on the Plaque, but the tracker aggregation groups to the top ~10–12 + "Other" (see API_SPEC
 `/api/tracker`).

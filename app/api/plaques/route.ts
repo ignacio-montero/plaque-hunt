@@ -13,6 +13,7 @@ export async function GET() {
       latitude: true,
       longitude: true,
       scheme: true,
+      fameRank: true,
       capture: { select: { id: true } },
     },
     orderBy: { subjectName: "asc" },
@@ -27,6 +28,7 @@ export async function GET() {
       longitude: p.longitude,
       scheme: p.scheme,
       captured: p.capture !== null,
+      famous: p.fameRank != null,
     })),
   });
 }
