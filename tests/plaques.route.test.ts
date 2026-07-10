@@ -35,14 +35,19 @@ describe("GET /api/plaques", () => {
       longitude: expect.any(Number),
       scheme: expect.any(String),
       captured: true,
+      famous: true, // fixture has fameRank 3 (top-100)
     });
     // list endpoint must NOT leak heavy detail fields
     expect(ada).not.toHaveProperty("inscription_text");
     // portrait is a detail-only field; keep the map payload light
     expect(ada).not.toHaveProperty("subject_image_url");
+    // famous is exposed as a boolean, not the raw rank/score
+    expect(ada).not.toHaveProperty("fameRank");
+    expect(ada).not.toHaveProperty("fame_rank");
 
     const babbage = plaques.find((p: any) => p.id === "opl-babbage");
     expect(babbage.captured).toBe(false);
+    expect(babbage.famous).toBe(false); // no fameRank → not famous
   });
 });
 

@@ -27,14 +27,13 @@
    renders a gold SVG star (above circles). Top-10 sanity check passed (Marx, Gandhi, Darwin,
    Mozart, Van Gogh, Chaplin).
 
-### Follow-ups from these tasks (open)
-- **Famous ranking is per-plaque, so people with multiple plaques appear twice** (Gandhi/Mozart/Van
-  Gogh each have 2 in the top 100 → ~80 distinct people). Decision pending: keep per-plaque (matches
-  "100 famous plaques", right for the map) or dedupe to 100 distinct people.
-- **Test gap:** `lib/fame.ts` and seed Pass 4 shipped WITHOUT unit tests (the agent that wrote them
-  was cut off by a usage limit before adding them). Suite is still 70 passing but doesn't cover fame.
-  Add: sitelinks-count parse + cascade, and a `/api/plaques` `famous` assertion.
-- Optional: the 375 `wikidata_id === "t"` records (data glitch) may hide recoverable portraits/fame.
+### Follow-ups from these tasks — RESOLVED ✅ (2026-07-10)
+- **Per-plaque vs distinct-people ranking** — ✅ decided (user): **keep per-plaque**. Matches "100
+  famous plaques"; every plaque of a very famous person gets a star. See DECISIONS.
+- **Fame test gap** — ✅ closed: `tests/fame.test.ts` (19 tests: QID validation, sitelinks parsing
+  cascade, cache wrapper) + `/api/plaques` now asserts `famous`. Suite: **89 passing**, `tsc` clean.
+- Still optional: the 375 `wikidata_id === "t"` records (data glitch) may hide recoverable
+  portraits/fame.
 
 ## Immediate next steps (in order)
 1. **Run the app locally** and click through map → capture → tracker end-to-end (`npm run dev`).

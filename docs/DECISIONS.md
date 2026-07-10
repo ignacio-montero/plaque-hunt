@@ -2,6 +2,16 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-10 — Famous ranking stays per-plaque (user decision); fame test gap closed
+User confirmed the top-100 fame ranking stays **per-plaque**, not deduped to distinct people: the
+feature is "100 most famous *plaques*", and on the map every plaque of a very famous subject should
+get a gold star even if that person holds several slots (~80 distinct people). No code change.
+Also closed the known test gap: `tests/fame.test.ts` (19 tests) covers `lib/fame.ts` — QID
+validation, sitelinks-count parsing (incl. missing entity / bad response / thrown fetch → null,
+empty sitelinks → 0), and the cache wrapper (hit/miss, null marker, corrupt file recovery,
+non-numeric score, uncacheable no-id person) — and `GET /api/plaques` tests now assert the `famous`
+boolean and that raw rank/score don't leak. Suite: **89 tests passing**.
+
 ## 2026-07-08 — "100 most famous" plaques as gold stars
 Map renders the top-100 most-notable plaques as gold stars instead of blue circles. **Fame metric:
 Wikidata sitelinks count** (number of language-Wikipedia editions per subject) — chosen over the

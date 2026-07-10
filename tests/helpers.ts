@@ -11,6 +11,8 @@ export interface PlaqueSeed {
   birthYear?: number | null;
   deathYear?: number | null;
   subjectImageUrl?: string | null;
+  fameRank?: number | null;
+  fameScore?: number | null;
   scheme?: string;
   address?: string;
   latitude: number;
@@ -29,6 +31,9 @@ export const FIXTURE_PLAQUES: PlaqueSeed[] = [
     deathYear: 1852,
     subjectImageUrl:
       "https://commons.wikimedia.org/wiki/Special:FilePath/Ada_Lovelace.jpg?width=400",
+    // in the top-100 famous ranking (seed Pass 4) → `famous: true` in the list
+    fameRank: 3,
+    fameScore: 120,
     address: "12 St James's Square, London",
     latitude: 51.5074,
     longitude: -0.1341,
@@ -82,6 +87,8 @@ export async function seedPlaques(rows: PlaqueSeed[] = FIXTURE_PLAQUES) {
       birthYear: r.birthYear ?? null,
       deathYear: r.deathYear ?? null,
       subjectImageUrl: r.subjectImageUrl ?? null,
+      fameRank: r.fameRank ?? null,
+      fameScore: r.fameScore ?? null,
       scheme: r.scheme ?? "English Heritage",
       address: r.address ?? "Somewhere, London",
       latitude: r.latitude,
