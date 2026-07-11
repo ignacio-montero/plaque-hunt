@@ -39,6 +39,16 @@ Notes: list endpoint returns the lightweight fields the map needs. `famous` is `
 top-100 most-notable plaques (by Wikidata sitelinks) — the map renders these as gold stars. Full inscription/detail comes
 from the detail endpoint to keep the map payload small.
 
+**`?view=map` (query param, optional):** returns a slimmer row shape for the map —
+`{ id, subject_name, latitude, longitude, captured, famous }` (no `address`/`scheme`).
+For 2078 rows this roughly halves the JSON. The default (full) shape above is what
+ManualSearch consumes; both shapes are stable contract.
+
+**Compression:** this endpoint gzips its response when the request sends
+`Accept-Encoding: gzip` (with `Content-Encoding: gzip` + `Vary: Accept-Encoding`).
+Added because the Next standalone server does not compress route-handler responses
+and the uncompressed list is ~458 KB on the wire.
+
 ---
 
 ## `GET /api/plaques/:id`

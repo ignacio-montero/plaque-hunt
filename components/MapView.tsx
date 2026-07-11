@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
-import type { PlaqueListItem, PlaquesResponse } from "./types";
+import type { PlaqueMapItem, PlaquesMapResponse } from "./types";
 import PlaqueDetailPanel from "./PlaqueDetailPanel";
 
 // London (roughly Charing Cross).
@@ -15,34 +15,82 @@ const LONDON_CENTER: [number, number] = [51.5074, -0.1278];
 // the pale map tiles.
 const STAR_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 1.6l3.09 6.26 6.91 1-5 4.87 1.18 6.87L12 17.27l-6.18 3.25L7 13.73l-5-4.87 6.91-1z"/></svg>`;
 
-function markerIcon(captured: boolean, famous: boolean): L.DivIcon {
-  if (famous) {
-    // Star shape signals fame regardless of capture state; the --captured
-    // variant only tints it so progress is still legible.
-    return L.divIcon({
-      className: "",
-      html: `<div class="plaque-star${
-        captured ? " plaque-star--captured" : ""
-      }">${STAR_SVG}</div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    });
-  }
+// Circle colors match the CSS vars used across the app (globals.css :root).
+// Canvas-drawn paths can't read CSS custom properties, so the values are
+// duplicated here — keep in sync with --plaque-blue / --captured-green.
+const CIRCLE_BLUE = "#1f5fa8";
+const CIRCLE_GREEN = "#2f9e5f";
+
+function starIcon(captured: boolean): L.DivIcon {
+  // Star shape signals fame regardless of capture state; the --captured
+  // variant only tints it so progress is still legible.
   return L.divIcon({
-    className: "", // suppress Leaflet's default divIcon styling
-    html: `<div class="plaque-marker plaque-marker--${
-      captured ? "captured" : "uncaptured"
-    }"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    className: "",
+    html: `<div class="plaque-star${
+      captured ? " plaque-star--captured" : ""
+    }">${STAR_SVG}</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
   });
+}
+
+/**
+ * Draws every non-famous plaque as a CircleMarker on ONE shared canvas.
+ *
+ * v1.0.1 rendered all 2078 plaques as individual DOM `divIcon` markers — a few
+ * thousand DOM nodes that the browser had to transform on every zoom/pan frame,
+ * which made pinch-zoom visibly laggy on phones and slowed the initial render.
+ * A canvas renderer rasterises all circles into a single element: zoom animates
+ * one canvas, and Leaflet does click/hover hit-testing internally. Only the
+ * ~100 famous star markers stay as DOM elements (they need the SVG look).
+ *
+ * Imperative Leaflet (not react-leaflet <CircleMarker>) on purpose: one effect
+ * building a layer group is far cheaper than mounting ~2000 React components.
+ */
+function CirclePlaqueLayer({
+  plaques,
+  onSelect,
+}: {
+  plaques: PlaqueMapItem[];
+  onSelect: (id: string) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    // One canvas renderer for the whole layer; padding pre-draws a margin
+    // around the viewport so panning doesn't flash empty tiles of circles.
+    const renderer = L.canvas({ padding: 0.4 });
+    const layer = L.layerGroup();
+
+    for (const p of plaques) {
+      const marker = L.circleMarker([p.latitude, p.longitude], {
+        renderer,
+        radius: 7,
+        weight: 2,
+        color: "#ffffff", // white ring so circles read on busy map tiles
+        fillColor: p.captured ? CIRCLE_GREEN : CIRCLE_BLUE,
+        fillOpacity: 1,
+      });
+      marker.on("click", () => onSelect(p.id));
+      // Hover name (desktop nicety) — tooltip DOM is only created on open.
+      marker.bindTooltip(p.subject_name, { direction: "top", offset: [0, -8] });
+      layer.addLayer(marker);
+    }
+
+    layer.addTo(map);
+    return () => {
+      layer.remove();
+    };
+  }, [map, plaques, onSelect]);
+
+  return null;
 }
 
 type LoadState = "loading" | "error" | "ready";
 
 export default function MapView() {
   const searchParams = useSearchParams();
-  const [plaques, setPlaques] = useState<PlaqueListItem[]>([]);
+  const [plaques, setPlaques] = useState<PlaqueMapItem[]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -56,12 +104,13 @@ export default function MapView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/plaques")
+    // ?view=map: slim payload (no address/scheme) — half the bytes for 2078 rows.
+    fetch("/api/plaques?view=map")
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data: PlaquesResponse) => {
+      .then((data: PlaquesMapResponse) => {
         if (cancelled) return;
         setPlaques(Array.isArray(data.plaques) ? data.plaques : []);
         setState("ready");
@@ -87,6 +136,11 @@ export default function MapView() {
     [plaques],
   );
 
+  // Split render strategies: circles go to one shared canvas; the ~100 famous
+  // stars stay as DOM markers for the crisp SVG look (cheap at that count).
+  const circles = useMemo(() => mappable.filter((p) => !p.famous), [mappable]);
+  const stars = useMemo(() => mappable.filter((p) => p.famous), [mappable]);
+
   const capturedCount = useMemo(
     () => plaques.filter((p) => p.captured).length,
     [plaques],
@@ -104,13 +158,14 @@ export default function MapView() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {mappable.map((p) => (
+        <CirclePlaqueLayer plaques={circles} onSelect={setSelectedId} />
+        {stars.map((p) => (
           <Marker
             key={p.id}
             position={[p.latitude, p.longitude]}
-            icon={markerIcon(p.captured, !!p.famous)}
+            icon={starIcon(p.captured)}
             // Famous stars ride above circles so they aren't buried in dense clusters.
-            zIndexOffset={p.famous ? 1000 : 0}
+            zIndexOffset={1000}
             title={p.subject_name}
             eventHandlers={{ click: () => setSelectedId(p.id) }}
           />

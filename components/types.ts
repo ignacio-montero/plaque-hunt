@@ -18,6 +18,21 @@ export interface PlaquesResponse {
   plaques: PlaqueListItem[];
 }
 
+/** Slim plaque record from GET /api/plaques?view=map — no address/scheme.
+ * The map renders 2078 of these, so the payload is kept minimal. */
+export interface PlaqueMapItem {
+  id: string;
+  subject_name: string;
+  latitude: number;
+  longitude: number;
+  captured: boolean;
+  famous?: boolean;
+}
+
+export interface PlaquesMapResponse {
+  plaques: PlaqueMapItem[];
+}
+
 /** Capture summary embedded in a plaque detail. */
 export interface CaptureSummary {
   id: string;

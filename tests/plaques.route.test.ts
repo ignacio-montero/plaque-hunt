@@ -21,7 +21,7 @@ describe("GET /api/plaques", () => {
       },
     });
 
-    const res = await LIST();
+    const res = await LIST(new Request("http://localhost/api/plaques"));
     expect(res.status).toBe(200);
     const { plaques } = await res.json();
     expect(plaques.length).toBeGreaterThan(0);
@@ -48,6 +48,48 @@ describe("GET /api/plaques", () => {
     const babbage = plaques.find((p: any) => p.id === "opl-babbage");
     expect(babbage.captured).toBe(false);
     expect(babbage.famous).toBe(false); // no fameRank → not famous
+  });
+
+  it("?view=map returns the slim shape (no address/scheme) for the map payload", async () => {
+    const res = await LIST(new Request("http://localhost/api/plaques?view=map"));
+    expect(res.status).toBe(200);
+    const { plaques } = await res.json();
+    const ada = plaques.find((p: any) => p.id === "opl-ada");
+    expect(ada).toMatchObject({
+      id: "opl-ada",
+      subject_name: "Ada Lovelace",
+      latitude: expect.any(Number),
+      longitude: expect.any(Number),
+      captured: false,
+      famous: true,
+    });
+    // The whole point of view=map: drop the strings the map never renders.
+    expect(ada).not.toHaveProperty("address");
+    expect(ada).not.toHaveProperty("scheme");
+  });
+
+  it("gzips the response when the client accepts it (standalone Next doesn't)", async () => {
+    const res = await LIST(
+      new Request("http://localhost/api/plaques?view=map", {
+        headers: { "accept-encoding": "gzip, deflate, br" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-encoding")).toBe("gzip");
+    expect(res.headers.get("vary")).toBe("Accept-Encoding");
+    const { gunzipSync } = await import("zlib");
+    const raw = Buffer.from(await res.arrayBuffer());
+    const { plaques } = JSON.parse(gunzipSync(raw).toString("utf8"));
+    expect(plaques.length).toBeGreaterThan(0);
+  });
+
+  it("stays uncompressed when the client does not accept gzip", async () => {
+    const res = await LIST(new Request("http://localhost/api/plaques"));
+    expect(res.headers.get("content-encoding")).toBeNull();
+    const { plaques } = await res.json();
+    // Full (default) shape keeps the ManualSearch contract intact.
+    expect(plaques[0]).toHaveProperty("address");
+    expect(plaques[0]).toHaveProperty("scheme");
   });
 });
 
