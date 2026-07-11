@@ -20,8 +20,9 @@
 ## Remaining
 1. **Real-world OCR accuracy (the one unretired risk).** De-risk Tesseract.js on ~10 real plaque
    photos (top-3 ≥7/10 bar; fallback = Google Cloud Vision). Now doable against the live deploy.
-2. **HTTPS for mobile capture (follow-up).** `navigator.geolocation` needs a secure context; the
-   tailnet serves plain HTTP. Set up Tailscale HTTPS (`tailscale cert`/`serve`) for phone field-use.
+2. **HTTPS for mobile capture ✅ (2026-07-11).** `tailscale serve` fronts the app at
+   https://homelab.<tailnet>.ts.net (tailnet-only, Let's Encrypt) → the secure context
+   `navigator.geolocation` needs. Phone field-capture is now testable end to end.
 
 ## TASK QUEUE (2026-07-07/08) — ALL DONE ✅
 1. **[BLOCKER] Dev server `./873.js` error** — ✅ fixed: corrupted `.next` (build ran under live

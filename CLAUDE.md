@@ -66,9 +66,11 @@ never re-seeds), `docker-compose.yml` (reference; the live copy is in the homela
 - **Updates are a one-loop path:** bump VERSION → `make publish VERSION=x.y.z` → bump the tag in the
   homelab repo's `services/plaque-hunter/docker-compose.yml` → commit/push → `ssh homelab 'cd ~/homelab
   && git pull && docker compose pull plaque-hunter && docker compose up -d plaque-hunter'`.
-- **Open follow-up (not a blocker):** mobile geolocation in the capture flow needs an HTTPS secure
-  context; over the tailnet it's plain HTTP (fine on a laptop). Set up Tailscale HTTPS
-  (`tailscale cert`/`serve`) for phone field-capture.
+- **HTTPS for mobile capture — DONE (2026-07-11):** `tailscale serve` fronts the app at
+  **https://homelab.<tailnet>.ts.net** (tailnet-only, Let's Encrypt cert). This gives the secure
+  context mobile `navigator.geolocation` needs. Plain `http://…:3001` still works too. Managed on the
+  box (needs root): `ssh -t homelab 'sudo tailscale serve status'`; rollback `… serve --https=443 off`.
+  Logged in the homelab repo's `docs/decisions.md` + `network.md`.
 
 ## Key gotchas
 - **Field-testing needs an HTTPS tunnel** (ngrok/cloudflared), not a LAN IP: mobile geolocation
