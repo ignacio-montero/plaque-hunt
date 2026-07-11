@@ -46,6 +46,19 @@ RUN mkdir -p /app/seed \
        fi \
     && DATABASE_URL="file:/app/seed/plaques.db" npx prisma db push --skip-generate --accept-data-loss
 
+# Pre-warm the Tesseract language cache: download + gunzip eng.traineddata at
+# BUILD time so the runtime never fetches it from the CDN nor writes to cwd
+# (cwd is read-only for the runtime user — the default cache write would fail).
+# The URL matches what tesseract.js 5.x (OEM LSTM_ONLY default) would fetch.
+# lib/ocr.ts points tesseract at this dir via TESSERACT_CACHE_PATH; on a cache
+# HIT tesseract does a plain read — no network, no writes.
+RUN mkdir -p /app/tessdata \
+    && node -e "const z=require('zlib'),fs=require('fs'); \
+        fetch('https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz') \
+          .then(r=>{if(!r.ok)throw new Error('traineddata download failed: '+r.status);return r.arrayBuffer()}) \
+          .then(b=>fs.writeFileSync('/app/tessdata/eng.traineddata',z.gunzipSync(Buffer.from(b))))" \
+    && test -s /app/tessdata/eng.traineddata
+
 # ---- runner: minimal standalone runtime ----------------------------------------
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
@@ -66,6 +79,19 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
+# Tesseract.js FULL packages. The standalone tracer only follows import graphs,
+# so it shipped the JS glue but silently DROPPED the .wasm engine files that
+# tesseract loads from disk at runtime → OCR crashed with ENOENT + an
+# uncaughtException that never settled the request (v1.0.0 field bug). Copy the
+# complete packages so every runtime-loaded asset (wasm, worker script) exists.
+COPY --from=builder /app/node_modules/tesseract.js ./node_modules/tesseract.js
+COPY --from=builder /app/node_modules/tesseract.js-core ./node_modules/tesseract.js-core
+
+# Pre-warmed Tesseract language cache (see builder stage). lib/ocr.ts reads
+# TESSERACT_CACHE_PATH; a cache hit means no network and no writes at runtime.
+COPY --from=builder /app/tessdata ./tessdata
+ENV TESSERACT_CACHE_PATH=/app/tessdata
+
 # Pre-seeded DB snapshot (copied into the volume on first boot only).
 COPY --from=builder /app/seed ./seed
 
@@ -74,8 +100,10 @@ RUN chmod +x ./docker-entrypoint.sh
 
 # Data volume: SQLite DB + uploaded photos + temp-upload staging. Owned by the
 # non-root `node` user so the app can write to the mounted volume.
+# tessdata is chowned so that even a cache MISS (corrupt/deleted file) can
+# re-download and write there instead of crashing on read-only cwd.
 RUN mkdir -p /app/data/uploads /app/data/cache/tmp-uploads \
-    && chown -R node:node /app/data /app/seed /app/prisma
+    && chown -R node:node /app/data /app/seed /app/prisma /app/tessdata
 USER node
 
 EXPOSE 3000

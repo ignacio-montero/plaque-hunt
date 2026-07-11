@@ -2,6 +2,27 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-11 — v1.0.1: fixed capture hang (OCR broken in the production image)
+First real phone test failed: "Identify plaque" hung on "Reading photo…" forever. Root cause, from
+container logs: **the Next.js standalone tracer only follows import graphs**, so the image shipped
+tesseract.js's JS but silently dropped the `.wasm` engine it loads from disk at runtime →
+`ENOENT tesseract-core-simd.wasm` → an `uncaughtException` whose promise never settled → the request
+hung (the route's try/catch never fired). Two latent bugs found alongside: (a) the English
+traineddata would be downloaded per-capture and its cache write to cwd would fail (cwd is read-only
+for the runtime user); (b) nothing capped a wedged OCR job. Fixes in 1.0.1:
+- **Dockerfile:** COPY the full `tesseract.js` + `tesseract.js-core` packages (all wasm variants)
+  into the runner; **bake `eng.traineddata` at build time** into `/app/tessdata` (pre-warmed cache —
+  no runtime downloads/writes) and set `TESSERACT_CACHE_PATH`.
+- **lib/ocr.ts:** hard timeout (`OCR_TIMEOUT_MS`, default 90 s) so a wedged worker rejects with
+  `ocr_timeout` → route returns `ocr_failed` instead of hanging; concurrency env-tunable
+  (`OCR_MAX_CONCURRENCY`, set to 1 on the 768 MB homelab container); cachePath passed through.
+- **CaptureFlow.tsx:** client-side `AbortSignal.timeout(120s)` + friendly timeout message.
+- **Tests:** `tests/ocr.test.ts` (7 tests; suite now 96) covers the hang → fast-fail behavior.
+**Verified in the container** (the step 1.0.0's smoke test missed — it only hit a DB-read endpoint):
+POSTing a text image through `/api/capture` returned OCR text + a confidence-1.0 match in <1 s.
+Learning folded into the devops agent spec: tracer drops runtime-fs-loaded assets; smoke-test the
+heaviest runtime path inside the image.
+
 ## 2026-07-11 — Deployed to the homelab (live)
 Deployed to the homelab at **http://<homelab-tailnet-ip>:3001** (tailnet only), image
 `ghcr.io/ignacio-montero/plaque-hunt:1.0.0`. Decisions made at deploy time:

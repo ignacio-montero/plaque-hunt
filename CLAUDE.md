@@ -73,6 +73,12 @@ never re-seeds), `docker-compose.yml` (reference; the live copy is in the homela
   Logged in the homelab repo's `docs/decisions.md` + `network.md`.
 
 ## Key gotchas
+- **Next.js standalone tracer drops runtime-fs-loaded assets.** It only follows import graphs —
+  tesseract.js's `.wasm` and traineddata never made it into the 1.0.0 image (capture hung in the
+  field). The Dockerfile now COPYs the full tesseract packages + bakes `eng.traineddata` to
+  `/app/tessdata` (`TESSERACT_CACHE_PATH`). If you add any lib that loads files at runtime, do the
+  same — and **smoke-test the heaviest path inside the container** (POST an image to `/api/capture`),
+  not just a DB-read endpoint.
 - **Field-testing needs an HTTPS tunnel** (ngrok/cloudflared), not a LAN IP: mobile geolocation
   requires a secure context; `localhost` is exempt but `192.168.x.x` is not.
 - **Don't deploy to Vercel** — SQLite + local file uploads need a persistent filesystem.

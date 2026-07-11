@@ -116,7 +116,15 @@ export default function CaptureFlow() {
     }
 
     try {
-      const res = await fetch("/api/capture", { method: "POST", body: form });
+      // Hard client-side timeout: if the server ever wedges mid-OCR (seen in
+      // v1.0.0 when a broken worker never settled the request), fail with a
+      // clear message instead of spinning on "Reading photo…" forever. 120 s
+      // comfortably covers a slow OCR on the homelab box (server caps at 90 s).
+      const res = await fetch("/api/capture", {
+        method: "POST",
+        body: form,
+        signal: AbortSignal.timeout(120_000),
+      });
 
       if (res.status === 422) {
         setNoMatch(true);
@@ -165,8 +173,15 @@ export default function CaptureFlow() {
       setShowManual(!data.candidates || data.candidates.length === 0);
       setStep("review");
     } catch (err) {
+      const timedOut =
+        err instanceof DOMException &&
+        (err.name === "TimeoutError" || err.name === "AbortError");
       setError(
-        err instanceof Error ? err.message : "Something went wrong uploading.",
+        timedOut
+          ? "Reading the photo took too long. Check your connection and try again — a smaller photo may help."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong uploading.",
       );
       setStep("select");
     }
