@@ -45,6 +45,31 @@ Canonical docs live in `docs/`:
 - [docs/DECISIONS.md](docs/DECISIONS.md) — decision log
 - [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) — status + ordered next steps
 
+## Deployment (homelab) — LIVE
+**Deployed 2026-07-11.** Running on the homelab at **http://<homelab-tailnet-ip>:3001** (tailnet only),
+image `ghcr.io/ignacio-montero/plaque-hunt:1.0.0`, container healthy, data on named volume
+`plaque-hunter-data` (`homelab_`-prefixed on the box). Logged in the homelab repo's
+`docs/decisions.md` (2026-07-11). Bundle files at repo root: `Dockerfile` (multi-stage, Next.js
+standalone, non-root), `docker-entrypoint.sh` (first-boot seeds volume from a baked-in DB snapshot,
+never re-seeds), `docker-compose.yml` (reference; the live copy is in the homelab repo at
+`services/plaque-hunter/`), `.env.example`, `.dockerignore`, `Makefile` + `scripts/publish.sh`,
+`DEPLOY.md`.
+- **GHCR package is PRIVATE** — the box is `docker login`'d to ghcr.io (read-scoped token). A new
+  machine pulling/pushing must `docker login ghcr.io` first.
+- **Publishing requires `docker buildx`** — the build machine (arm64 Mac via Colima) cross-builds
+  `linux/amd64` for the N95 with buildx + QEMU. Install once: `brew install docker-buildx`, symlink
+  into `~/.docker/cli-plugins/`, `docker buildx create --name plaque-builder --driver docker-container --use`.
+  Without it `make publish` fails ("unknown command: docker buildx").
+- **Seed ships baked into the image, not seeded on the box** (seed is network-heavy). The publisher
+  must have a locally-seeded `prisma/dev.db` present — it's gitignored, so it lives only in the local
+  build context, never git/CI. `make publish` from a machine with the seeded DB.
+- **Updates are a one-loop path:** bump VERSION → `make publish VERSION=x.y.z` → bump the tag in the
+  homelab repo's `services/plaque-hunter/docker-compose.yml` → commit/push → `ssh homelab 'cd ~/homelab
+  && git pull && docker compose pull plaque-hunter && docker compose up -d plaque-hunter'`.
+- **Open follow-up (not a blocker):** mobile geolocation in the capture flow needs an HTTPS secure
+  context; over the tailnet it's plain HTTP (fine on a laptop). Set up Tailscale HTTPS
+  (`tailscale cert`/`serve`) for phone field-capture.
+
 ## Key gotchas
 - **Field-testing needs an HTTPS tunnel** (ngrok/cloudflared), not a LAN IP: mobile geolocation
   requires a secure context; `localhost` is exempt but `192.168.x.x` is not.

@@ -2,6 +2,23 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-11 — Deployed to the homelab (live)
+Deployed to the homelab at **http://<homelab-tailnet-ip>:3001** (tailnet only), image
+`ghcr.io/ignacio-montero/plaque-hunt:1.0.0`. Decisions made at deploy time:
+- **GHCR package kept PRIVATE** (user choice) — the box authenticates with a read-scoped token
+  (`docker login`) rather than making the image public. Alternative was a public package (no auth).
+- **Cross-build via buildx + QEMU.** The build machine is an arm64 Mac (Colima); the N95 is amd64, so
+  `make publish` uses `docker buildx --platform linux/amd64`. Required installing the buildx plugin
+  locally (documented in DEPLOY.md + CLAUDE.md). The box only ever pulls.
+- **Env inlined in compose, not `env_file`.** The app has no secrets and a gitignored `.env` would be
+  absent after a clean `git pull` on the box, breaking compose. Matches the homelab's other services.
+  Fixed the reference `docker-compose.yml` here to match.
+- **Doc drift fixed:** DEPLOY.md previously said the entrypoint runs `prisma db push` at runtime; it
+  does not (schema is applied to the baked snapshot at build time; the slim runtime is CLI-free).
+Verified: container healthy, serves `/api/plaques` over the tailnet, refused on the LAN IP, first-boot
+volume seed from the baked snapshot. Full runbook in DEPLOY.md; homelab-side record in the homelab
+repo's `docs/decisions.md`.
+
 ## 2026-07-10 — Famous ranking stays per-plaque (user decision); fame test gap closed
 User confirmed the top-100 fame ranking stays **per-plaque**, not deduped to distinct people: the
 feature is "100 most famous *plaques*", and on the map every plaque of a very famous subject should

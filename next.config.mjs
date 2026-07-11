@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Standalone output: Next traces exactly the files the server needs into
+  // .next/standalone, so the production Docker image ships a tiny self-contained
+  // server (node server.js) instead of the whole node_modules tree. Keeps the
+  // image small for the low-power homelab box. See Dockerfile.
+  output: "standalone",
   // Open Plaques photos are hosted on Flickr; allow remote thumbnails if we ever render them.
   images: {
     remotePatterns: [

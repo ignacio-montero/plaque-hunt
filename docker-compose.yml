@@ -1,0 +1,46 @@
+# Blue Plaque Hunter — homelab service definition.
+#
+# This is the block to drop into the homelab control repo as
+#   services/plaque-hunter/docker-compose.yml
+# and register in that repo's root compose.yaml `include:` list.
+#
+# Conventions (from ~/Development/homelab/docs):
+#  - Published port bound to the TAILNET IP only (never 0.0.0.0) — keeps it off
+#    the LAN/Internet and sidesteps the Docker-bypasses-UFW gotcha.
+#  - mem_limit set (N95 has 8 GB soldered).
+#  - Pinned, versioned image tag pulled from GHCR (the box pulls, never builds).
+#  - Secrets/config come from an untracked .env on the server (env_file).
+#  - Persistent data (SQLite DB + uploaded photos) lives in a named volume so it
+#    survives container recreate/update.
+services:
+  plaque-hunter:
+    image: ghcr.io/ignacio-montero/plaque-hunt:1.0.0   # pin a version; never :latest
+    container_name: plaque-hunter
+    restart: unless-stopped
+    # Env is inlined (no secrets) — an `env_file: .env` would be absent after a
+    # clean `git pull` on the box (.env is gitignored) and break compose. The
+    # only runtime var is DATABASE_URL, pointing at the DB on the volume.
+    environment:
+      DATABASE_URL: "file:/app/data/plaques.db"
+      DATA_DIR: "/app/data"
+      DB_FILE: "/app/data/plaques.db"
+    ports:
+      # tailnet-only: http://<homelab-tailnet-ip>:3001
+      # host port 3001 is free per inventory.md (3000=Homepage, 8080=Dozzle taken).
+      - "<homelab-tailnet-ip>:3001:3000"
+    volumes:
+      # Single named volume holds the SQLite DB, uploaded photos, and the
+      # temp-upload staging dir (all live under /app/data). Survives recreate.
+      - plaque-hunter-data:/app/data
+    mem_limit: 768m        # Next.js + server-side Tesseract.js OCR peaks; see DEPLOY.md
+    memswap_limit: 768m    # cap swap use too, so OCR spikes can't thrash zram/disk
+    healthcheck:
+      # /api/plaques is a cheap DB read that proves the app + DB are wired up.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/plaques').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  plaque-hunter-data:

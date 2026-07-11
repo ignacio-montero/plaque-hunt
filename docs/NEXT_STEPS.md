@@ -13,6 +13,15 @@
 - **Red-teamed & hardened ✅ (2026-07-06).** Critic pass done; all findings fixed — upload size
   cap + image-byte sniff + OCR concurrency limit, confirm-race → 409, nosniff header, temp-file
   reaper, value clamping, seed validate-before-cache, deterministic match tie-break. See DECISIONS.
+- **Deployed to homelab ✅ (2026-07-11).** Live at http://<homelab-tailnet-ip>:3001 (tailnet), image
+  `ghcr.io/ignacio-montero/plaque-hunt:1.0.0`, healthy, data on the `plaque-hunter-data` volume.
+  Updates: `make publish VERSION=x.y.z` → bump the tag in the homelab repo → pull loop. See DEPLOY.md.
+
+## Remaining
+1. **Real-world OCR accuracy (the one unretired risk).** De-risk Tesseract.js on ~10 real plaque
+   photos (top-3 ≥7/10 bar; fallback = Google Cloud Vision). Now doable against the live deploy.
+2. **HTTPS for mobile capture (follow-up).** `navigator.geolocation` needs a secure context; the
+   tailnet serves plain HTTP. Set up Tailscale HTTPS (`tailscale cert`/`serve`) for phone field-use.
 
 ## TASK QUEUE (2026-07-07/08) — ALL DONE ✅
 1. **[BLOCKER] Dev server `./873.js` error** — ✅ fixed: corrupted `.next` (build ran under live

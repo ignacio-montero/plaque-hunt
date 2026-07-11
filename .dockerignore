@@ -1,0 +1,34 @@
+# Keep the build context small and the image clean.
+node_modules
+.next
+out
+build
+npm-debug.log*
+
+# Local env (never bake secrets/dev config into the image). Note: prisma/dev.db
+# is intentionally NOT ignored — the seeded DB is baked in as the first-boot
+# snapshot (see Dockerfile). If you prefer to seed on the box instead, add
+# `prisma/dev.db` here.
+.env
+.env.local
+.env*.local
+
+# Runtime data — must come from the volume, never the image.
+data/uploads
+data/cache
+
+# Dev / CI / editor noise
+.git
+.gitignore
+.DS_Store
+*.log
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+.claude
+tests
+vitest.config.ts
+
+# Docs aren't needed in the image
+docs
+README.md
+DEPLOY.md
