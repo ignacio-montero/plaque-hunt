@@ -2,6 +2,22 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-11 — v1.0.2: map perf — canvas markers + slim gzipped payload
+Phone field-test feedback: map first-paint took seconds and pinch-zoom lagged. Causes + fixes:
+- **2078 DOM markers → 1 canvas.** Every plaque was an individual `divIcon` DOM node, all
+  transformed per zoom frame. Non-famous plaques now draw as `L.circleMarker`s on a single shared
+  canvas renderer via an imperative `CirclePlaqueLayer` (deliberately not 2000 react-leaflet
+  components — one effect building a layer group mounts far faster). Click→panel and hover tooltips
+  preserved; the ~100 famous gold stars remain DOM markers (SVG look, cheap at that count).
+  Canvas circle colors are duplicated from the CSS vars (canvas can't read custom properties) —
+  keep in sync with `--plaque-blue`/`--captured-green` in globals.css.
+- **458 KB uncompressed payload → ?view=map + gzip.** The Next standalone server does NOT compress
+  route-handler responses. `GET /api/plaques?view=map` drops address/scheme (map never renders
+  them; ~254 KB) and the route now gzips when `Accept-Encoding: gzip` (~30 KB on the wire).
+  Default full shape unchanged for ManualSearch — both shapes are contract (API_SPEC updated).
+Verified in-browser: 1 canvas + 100 DOM markers, click-through, tooltips, deep-link, mobile
+viewport, zero console errors. 99 tests passing (3 new route tests).
+
 ## 2026-07-11 — v1.0.1: fixed capture hang (OCR broken in the production image)
 First real phone test failed: "Identify plaque" hung on "Reading photo…" forever. Root cause, from
 container logs: **the Next.js standalone tracer only follows import graphs**, so the image shipped
