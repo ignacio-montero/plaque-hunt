@@ -6,13 +6,13 @@ stats update. Single implicit user, no auth. v1 validates the core loop solo bef
 on a multi-user native app.
 
 ## Current state
-**v1 core loop is built, integrated, tested, and hardened.** Full `npm run build` passes; `npm test`
-= **89 Vitest tests, all passing** (incl. `tests/fame.test.ts` covering `lib/fame.ts` + the `famous`
-flag on `/api/plaques`); `npx tsc --noEmit` clean. DB seeded. A critic red-team pass ran and all
-findings are fixed (upload size cap + image sniff + OCR concurrency limit, confirm-race → 409,
-nosniff, temp reaper, value clamps, seed validate-before-cache). Fame ranking is **per-plaque by
-user decision** (2026-07-10; see DECISIONS) — do not dedupe to distinct people. Not yet run against
-real plaque photos (the one remaining open risk — see Next step).
+**v1 core loop is built, deployed, and being field-tested on real photos.** Full `npm run build`
+passes; `npm test` = **109 Vitest tests, all passing**; `npx tsc --noEmit` clean. DB seeded. Live on
+the homelab (see Deployment). Recognition has been through a real-photo hardening cycle
+(v1.0.1–v1.0.4): OCR wasm fix, text-first recognition (sharp image prep + token matcher — both real
+field photos rank #1), map perf (canvas markers + gzip), and early-exit OCR (clear plaques ~2×
+faster). Fame ranking is **per-plaque by user decision** (2026-07-10; see DECISIONS) — do not dedupe
+to distinct people. Ongoing: field-test more plaque types toward the top-3 ≥7/10 bar.
 
 Backend (all under `app/api/**`, `lib/`, `prisma/seed.ts`):
 - **Seed** (`npm run seed`, `prisma/seed.ts` + `lib/openplaques.ts`): two-pass, idempotent, caches
