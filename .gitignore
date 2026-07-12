@@ -25,5 +25,10 @@ prisma/dev.db*
 # build artifacts
 *.tsbuildinfo
 
+# Tesseract language model — downloaded/cached at runtime (dev) or baked into
+# the image at build (prod). Never belongs in git. (An earlier stray cache got
+# committed once; this guard stops a repeat.)
+*.traineddata
+
 # local Claude Code settings (machine-specific)
 .claude/settings.local.json

@@ -49,19 +49,26 @@ describe("findBlueDisc", () => {
 });
 
 describe("buildOcrVariants", () => {
-  it("produces crop variants + full-frame when a disc is found", async () => {
+  it("produces crop variants + full-frame when a disc is found, in cheap-first order", async () => {
     const img = await synthImage({ x: 0.4, y: 0.3, size: 0.3 });
     const variants = await buildOcrVariants(img);
-    const tags = variants.map((v) => v.tag);
-    expect(tags).toContain("crop-norm");
-    expect(tags).toContain("crop-clahe");
-    expect(tags).toContain("full-norm");
-    for (const v of variants) expect(v.image.length).toBeGreaterThan(0);
+    // Order matters for early-exit: cheap crops first, expensive full-frame last.
+    expect(variants.map((v) => v.tag)).toEqual([
+      "crop-norm",
+      "crop-clahe",
+      "full-norm",
+    ]);
+    // render() is lazy but must produce a real image buffer when called.
+    for (const v of variants) {
+      const buf = await v.render();
+      expect(buf.length).toBeGreaterThan(0);
+    }
   });
 
   it("falls back to full-frame only when no disc is found", async () => {
     const img = await synthImage();
     const variants = await buildOcrVariants(img);
     expect(variants.map((v) => v.tag)).toEqual(["full-norm"]);
+    expect((await variants[0].render()).length).toBeGreaterThan(0);
   });
 });

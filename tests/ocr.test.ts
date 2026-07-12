@@ -14,17 +14,28 @@ vi.mock("tesseract.js", () => ({
 }));
 
 // Preprocessing is exercised by tests/imagePrep.test.ts against real images;
-// here it would choke on fake buffers, so return the input as one variant.
-vi.mock("@/lib/imagePrep", () => ({
-  buildOcrVariants: vi.fn(async (image: Buffer) => [
-    { tag: "test", image },
-  ]),
+// here we control the variant list via a hoisted holder so tests can simulate
+// single- vs multi-pass. Each variant's render() just yields a stub buffer.
+const H = vi.hoisted(() => ({
+  variants: [{ tag: "test", render: async () => Buffer.from("x") }] as {
+    tag: string;
+    render: () => Promise<Buffer>;
+  }[],
 }));
+vi.mock("@/lib/imagePrep", () => ({
+  buildOcrVariants: vi.fn(async () => H.variants),
+}));
+
+/** Set the variant list for one test (reset in afterEach). */
+function useVariants(tags: string[]) {
+  H.variants = tags.map((tag) => ({ tag, render: async () => Buffer.from(tag) }));
+}
 
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.resetModules();
   createWorkerMock.mockReset();
+  H.variants = [{ tag: "test", render: async () => Buffer.from("x") }];
 });
 
 /** Import a fresh lib/ocr with current env (its knobs are module-level). */
@@ -109,5 +120,50 @@ describe("runOcr", () => {
     const { runOcr } = await freshOcr();
     await expect(runOcr(Buffer.from("a"))).rejects.toThrow(/ocr_timeout/);
     await expect(runOcr(Buffer.from("b"))).resolves.toBe("RECOVERED");
+  });
+
+  it("unions all passes when no shouldStop is given (multi-pass)", async () => {
+    useVariants(["crop-norm", "crop-clahe", "full-norm"]);
+    const recognize = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { text: "alpha" } })
+      .mockResolvedValueOnce({ data: { text: "beta" } })
+      .mockResolvedValueOnce({ data: { text: "gamma" } });
+    createWorkerMock.mockResolvedValue({
+      setParameters: vi.fn().mockResolvedValue(undefined),
+      recognize,
+      terminate: vi.fn().mockResolvedValue(undefined),
+    });
+    const { runOcr } = await freshOcr();
+    const result = await runOcr(Buffer.from("img"));
+    expect(recognize).toHaveBeenCalledTimes(3);
+    expect(result).toBe("alpha beta gamma");
+  });
+
+  it("stops early (skips later passes) once shouldStop is satisfied", async () => {
+    useVariants(["crop-norm", "crop-clahe", "full-norm"]);
+    const seen: string[] = [];
+    const recognize = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { text: "alpha" } })
+      .mockResolvedValueOnce({ data: { text: "beta" } })
+      .mockResolvedValueOnce({ data: { text: "gamma" } });
+    createWorkerMock.mockResolvedValue({
+      setParameters: vi.fn().mockResolvedValue(undefined),
+      recognize,
+      terminate: vi.fn().mockResolvedValue(undefined),
+    });
+    const { runOcr } = await freshOcr();
+    // Stop as soon as we've seen "beta" (i.e. after the 2nd pass).
+    const result = await runOcr(Buffer.from("img"), {
+      shouldStop: (text) => {
+        seen.push(text);
+        return text.includes("beta");
+      },
+    });
+    expect(recognize).toHaveBeenCalledTimes(2); // 3rd pass skipped
+    expect(result).toBe("alpha beta");
+    // Predicate sees the accumulating union each time.
+    expect(seen).toEqual(["alpha", "alpha beta"]);
   });
 });

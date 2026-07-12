@@ -10,10 +10,12 @@
 
 import sharp from "sharp";
 
-/** One preprocessed rendition of the upload to OCR. */
+/** One preprocessed rendition of the upload to OCR.
+ * `render` is lazy so the caller can OCR passes in order and stop early —
+ * later variants' sharp work is never done once a confident match is found. */
 export interface OcrVariant {
   tag: string;
-  image: Buffer;
+  render: () => Promise<Buffer>;
 }
 
 /** Normalised bbox (0..1 fractions of image size) of the detected disc. */
@@ -131,14 +133,20 @@ export async function findBlueDisc(image: Buffer): Promise<DiscBox | null> {
 }
 
 /**
- * Build the preprocessed variants to OCR, best-first:
- *  - disc crop, contrast-normalised (best when the disc is found)
- *  - disc crop, CLAHE local-contrast (wins on night shots / weathered discs)
- *  - full frame at 1600px, normalised (fallback; also catches non-blue schemes)
- * All variants are EXIF-rotated and grayscaled. OCR runs on every variant and
- * the matcher sees the union of their text — extra garbage from a weak variant
- * only adds unused tokens, while each variant contributes the words it reads
- * best (measured on the field photos: no single variant wins on both).
+ * Build the preprocessed variants to OCR, ORDERED best/cheapest-first:
+ *  1. disc crop, contrast-normalised   (cheap 1000px; usually enough alone)
+ *  2. disc crop, CLAHE local-contrast  (wins on night shots / weathered discs)
+ *  3. full frame at 1600px, normalised  (expensive fallback; the slowest pass —
+ *     see DECISIONS — and only needed when the crops came up short, or when no
+ *     disc was found at all e.g. a non-blue scheme)
+ * All variants are EXIF-rotated and grayscaled. The caller (lib/ocr.ts) OCRs
+ * them in this order and STOPS as soon as it has a confident match, so on a
+ * clear plaque only pass 1 runs. When several passes do run, the matcher sees
+ * the union of their text — garbage from a weak pass only adds unused tokens,
+ * while each pass contributes the words it reads best.
+ *
+ * `render` is deferred: the disc is detected eagerly (cheap) but the crop /
+ * CLAHE / resize work for a given pass only happens if that pass is reached.
  */
 export async function buildOcrVariants(image: Buffer): Promise<OcrVariant[]> {
   // .rotate() with no args applies the EXIF orientation — fix #1 above.
@@ -165,25 +173,24 @@ export async function buildOcrVariants(image: Buffer): Promise<OcrVariant[]> {
           .resize({ width: 1000 });
       variants.push({
         tag: "crop-norm",
-        image: await crop().grayscale().normalise().toBuffer(),
+        render: () => crop().grayscale().normalise().toBuffer(),
       });
       variants.push({
         tag: "crop-clahe",
-        image: await crop()
-          .grayscale()
-          .clahe({ width: 64, height: 64, maxSlope: 3 })
-          .toBuffer(),
+        render: () =>
+          crop().grayscale().clahe({ width: 64, height: 64, maxSlope: 3 }).toBuffer(),
       });
     }
   }
 
   variants.push({
     tag: "full-norm",
-    image: await sharp(rotated)
-      .resize({ width: 1600, withoutEnlargement: true })
-      .grayscale()
-      .normalise()
-      .toBuffer(),
+    render: () =>
+      sharp(rotated)
+        .resize({ width: 1600, withoutEnlargement: true })
+        .grayscale()
+        .normalise()
+        .toBuffer(),
   });
 
   return variants;

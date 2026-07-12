@@ -7,6 +7,7 @@ import { runOcr } from "@/lib/ocr";
 import {
   narrowByProximity,
   rankByOcr,
+  EARLY_EXIT_CONFIDENCE,
   type MatchablePlaque,
   type RankedCandidate,
 } from "@/lib/matching";
@@ -75,20 +76,9 @@ export async function POST(req: Request) {
     photo.type || "application/octet-stream",
   );
 
-  // Run OCR.
-  let ocrText = "";
-  try {
-    ocrText = await runOcr(bytes);
-  } catch (err) {
-    console.error("OCR failed:", err);
-    return NextResponse.json(
-      { error: "ocr_failed", photo_token: token },
-      { status: 500 },
-    );
-  }
-
-  // Build the candidate pool: proximity-narrowed if we have a location,
-  // otherwise all plaques (text-only fallback, weaker — flagged in PRD).
+  // Build the candidate pool BEFORE OCR so the multi-pass OCR can early-exit
+  // the moment a pass confidently identifies a plaque (skips slower passes).
+  // Proximity-narrowed if we have a location, else all plaques (text-only).
   const allPlaques = await prisma.plaque.findMany({
     select: {
       id: true,
@@ -112,6 +102,24 @@ export async function POST(req: Request) {
       // Bad GPS fix / nothing in radius: fall back to text-only over all plaques.
       effectiveLocationUsed = false;
     }
+  }
+
+  // Run OCR, stopping early once a pass yields a confident match against the
+  // pool (rankByOcr is cheap; the OCR passes are what's expensive).
+  let ocrText = "";
+  try {
+    ocrText = await runOcr(bytes, {
+      shouldStop: (text) => {
+        const top = rankByOcr(text, pool, distances)[0];
+        return !!top && top.match_confidence >= EARLY_EXIT_CONFIDENCE;
+      },
+    });
+  } catch (err) {
+    console.error("OCR failed:", err);
+    return NextResponse.json(
+      { error: "ocr_failed", photo_token: token },
+      { status: 500 },
+    );
   }
 
   const ranked: RankedCandidate[] = rankByOcr(ocrText, pool, distances);

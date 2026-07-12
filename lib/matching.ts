@@ -80,6 +80,14 @@ export function narrowByProximity(
 // least one distinctive word from the plaque was actually read.
 export const MIN_TEXT_SCORE = 0.05;
 
+// Early-exit bar for /api/capture's multi-pass OCR: once the best candidate's
+// confidence reaches this, we've identified the plaque well enough to stop and
+// skip the remaining (slower) OCR passes. Tuned on the real field photos so a
+// clear plaque exits after the first cheap pass, while the wrong-plaque scores
+// seen in testing (≤~0.27 even text-only over all 2078) stay below it. The
+// mandatory user-confirm step is the backstop. See docs/DECISIONS.md.
+export const EARLY_EXIT_CONFIDENCE = 0.3;
+
 // Words that appear on most plaques and carry no identity signal. They still
 // count a little (they confirm "this is plaque text"), but must never let a
 // wrong plaque outrank the right one on shared boilerplate alone.

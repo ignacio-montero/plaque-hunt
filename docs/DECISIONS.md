@@ -2,6 +2,36 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-12 — v1.0.4: faster recognition via early-exit OCR (options A+B)
+Recognition was correct but slow (~5s clear / ~14s weathered on the N95 — three
+sequential Tesseract passes, the 1600px full-frame pass being 60–85% of it).
+Implemented **early-exit multi-pass** (no accuracy loss on the common case):
+- `lib/imagePrep.ts` variants are now **lazy** (`render()`) and ordered
+  cheap-first (crop-norm, crop-clahe, then the expensive full-frame).
+- `lib/ocr.ts` `runOcr(image, { shouldStop })` OCRs passes in order and stops as
+  soon as the caller's predicate is satisfied — later passes' sharp work + OCR
+  are skipped.
+- `app/api/capture/route.ts` builds the candidate pool BEFORE OCR and passes
+  `shouldStop = top.match_confidence >= EARLY_EXIT_CONFIDENCE` (0.3).
+- `EARLY_EXIT_CONFIDENCE = 0.3` chosen from per-pass measurement on the real
+  photos: clear plaques cross it after the first cheap crop pass; it sits above
+  the highest wrong-plaque score observed (~0.27 text-only over all 2078), so
+  early-exit can't fire on a wrong top. The mandatory confirm step is the backstop.
+Result (container): **Turing 1.4s (was ~2.2s), skips full-frame, still #1 @0.57**;
+weathered Ben-Gurion still runs all passes (needs them). Net: clear plaques ~2×
+faster, hard plaques unchanged. Also **removed `eng.traineddata`** that a stray
+experiment cache accidentally committed in v1.0.3, and gitignored `*.traineddata`.
+
+### Considered but NOT adopted: swapping to the "fast" tesseract model (option C)
+Benchmarked `tessdata_fast` vs our shipped `4.0.0_best_int` on both real photos.
+Fast was ~20–36% quicker (most on the full-frame pass) and slightly BETTER on the
+clear Turing (0.76→0.80), but **notably worse on the weathered Ben-Gurion
+(0.30→0.17)** — the hardest, most failure-prone case, and low enough to risk
+falling below the match floor / being outranked in the full-pool no-location case.
+Since accuracy on hard plaques is the whole point and A+B already cut the common
+case, the speed/accuracy trade isn't worth it. Kept the best model. Revisit only
+if speed on weathered plaques becomes the priority over recognition quality.
+
 ## 2026-07-12 — v1.0.3: text-first plaque recognition (the OCR-accuracy risk, retired)
 Field feedback: candidates ranked by distance, not photo content. Diagnosis on the two REAL
 captured photos (pulled from the box; Turing night shot scored 0.01, Ben-Gurion weathered plaque

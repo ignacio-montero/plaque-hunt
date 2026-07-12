@@ -63,23 +63,39 @@ function withOcrTimeout<T>(job: Promise<T>): Promise<T> {
   return Promise.race([job, timeout]).finally(() => clearTimeout(timer));
 }
 
+export interface RunOcrOptions {
+  /**
+   * Called after each OCR pass with the text accumulated so far. Return true
+   * to stop early and skip the remaining (more expensive) passes. Used by
+   * /api/capture to stop as soon as the text confidently identifies a plaque,
+   * so a clear photo needs only the first, cheap crop pass instead of all
+   * three (the full-frame pass is the slow one — see docs/DECISIONS.md).
+   * Omit to always run every pass (union of all text).
+   */
+  shouldStop?: (accumulatedText: string) => boolean;
+}
+
 /**
  * Run OCR over the raw bytes of an uploaded image and return the extracted
  * text, collapsed to a single-spaced string. Returns "" if nothing readable.
  *
- * Multi-pass: the image is preprocessed into a few variants (EXIF-rotated
- * blue-disc crop, CLAHE crop, normalised full frame — see lib/imagePrep.ts)
- * and each is OCR'd with one shared worker. The returned text is the UNION of
- * all passes: variants read different words best, and the token-based matcher
- * (lib/matching.ts) ignores unmatched garbage, so unioning only adds recall.
- * PSM SINGLE_BLOCK measured far better than AUTO on plaque crops (AUTO often
- * returns empty).
+ * Multi-pass with early exit: the image is preprocessed into ordered variants
+ * (cheap blue-disc crop first, expensive full frame last — see
+ * lib/imagePrep.ts) and each is OCR'd with one shared worker. After each pass
+ * `opts.shouldStop` decides whether the accumulated text is already enough; if
+ * so, later passes (and their sharp preprocessing) are skipped. Whatever ran is
+ * returned as the UNION of its text — variants read different words best, and
+ * the token matcher (lib/matching.ts) ignores unmatched garbage, so unioning
+ * only adds recall. PSM SINGLE_BLOCK measured far better than AUTO on crops.
  *
  * At most MAX_CONCURRENT_OCR jobs run at once; extra callers queue.
  * Throws (rather than hangs) if the worker fails or exceeds OCR_TIMEOUT_MS —
  * /api/capture turns that into a proper `ocr_failed` response.
  */
-export async function runOcr(image: Buffer): Promise<string> {
+export async function runOcr(
+  image: Buffer,
+  opts: RunOcrOptions = {},
+): Promise<string> {
   await acquireOcrSlot();
   let worker: Awaited<ReturnType<typeof createWorker>> | undefined;
   try {
@@ -100,11 +116,13 @@ export async function runOcr(image: Buffer): Promise<string> {
         });
         const texts: string[] = [];
         for (const v of variants) {
+          const image = await v.render();
           const {
             data: { text },
-          } = await worker.recognize(v.image);
+          } = await worker.recognize(image);
           const cleaned = normaliseOcrText(text);
           if (cleaned) texts.push(cleaned);
+          if (opts.shouldStop?.(texts.join(" "))) break;
         }
         return texts.join(" ");
       })(),
