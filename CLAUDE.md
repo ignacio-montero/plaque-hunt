@@ -85,11 +85,15 @@ never re-seeds), `docker-compose.yml` (reference; the live copy is in the homela
   requires a secure context; `localhost` is exempt but `192.168.x.x` is not.
 - **Don't deploy to Vercel** — SQLite + local file uploads need a persistent filesystem.
 - **Leaflet** must be dynamically imported with `ssr: false` in Next.js.
-- **OCR accuracy is the #1 risk** — de-risk Tesseract.js on real photos early (top-3 ≥7/10 bar);
-  fallback is Google Cloud Vision.
+- **OCR accuracy — largely retired (v1.0.3, 2026-07-12).** Real-photo failures were EXIF rotation +
+  uncropped frames + whole-string fuse matching, all fixed (see DECISIONS). Both real field photos
+  now rank #1 (0.76 / 0.30 confidence; Ben-Gurion wins text-only across all 2078 plaques). Escalation
+  path if more field photos disappoint: Google Cloud Vision drop-in behind `lib/ocr.ts`.
+- **iPhone photos are EXIF-rotated** — any new image-consuming code path must `sharp().rotate()`
+  first (Tesseract reads raw pixels, sideways).
 
 ## Next step
-Built + tested; the only unretired risk is **real-world OCR accuracy**. Run the app (`npm run dev`),
-click through map → capture → tracker, then de-risk OCR on ~10 real plaque photos (top-3 ≥7/10 bar;
-fallback = Google Cloud Vision). Optional critic pass before real-world use. See
+v1.0.3 live: recognition is text-first (image prep + token matcher; both real field photos rank #1).
+Next: keep field-testing captures on more plaques (different schemes/lighting) to confirm the top-3
+≥7/10 bar holds; escalation path is Google Cloud Vision behind `lib/ocr.ts`. See
 [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md).

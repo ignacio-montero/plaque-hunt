@@ -5,7 +5,7 @@
 - **Data verified ✅.** Open Plaques London dump: strong completeness, PDDL public domain.
 - **v1 implemented ✅ (2026-07-06).** Backend + frontend built in parallel; **full `npm run build`
   passes**, typechecks clean. DB seeded: **2,078 blue plaques** (1,691 gender, 1,792 birth year).
-  - Backend: two-pass seed, all `/api/*` routes, OCR (Tesseract.js) + fuse.js matching, photo store.
+  - Backend: two-pass seed, all `/api/*` routes, OCR (sharp prep + Tesseract.js) + token matching, photo store.
   - Frontend: Leaflet map (captured/not-captured markers), capture confirm/correct flow, tracker.
 - **Tested ✅ (2026-07-06).** Vitest suite, **59 tests all passing**, `tsc` clean. Covers API
   contract conformance (incl. 409/422/undo), matching logic, tracker aggregation, photoStore
@@ -18,8 +18,10 @@
   Updates: `make publish VERSION=x.y.z` → bump the tag in the homelab repo → pull loop. See DEPLOY.md.
 
 ## Remaining
-1. **Real-world OCR accuracy (the one unretired risk).** De-risk Tesseract.js on ~10 real plaque
-   photos (top-3 ≥7/10 bar; fallback = Google Cloud Vision). Now doable against the live deploy.
+1. **Real-world OCR accuracy — largely retired ✅ (v1.0.3, 2026-07-12).** The two real field photos
+   both rank #1 (Turing 0.76, weathered Ben-Gurion 0.30 — and #1 text-only vs all 2078 plaques).
+   Keep field-testing toward the top-3 ≥7/10 bar on ~10 photos; escalation = Google Cloud Vision
+   behind lib/ocr.ts.
 2. **HTTPS for mobile capture ✅ (2026-07-11).** `tailscale serve` fronts the app at
    https://homelab.<tailnet>.ts.net (tailnet-only, Let's Encrypt) → the secure context
    `navigator.geolocation` needs. Phone field-capture is now testable end to end.
