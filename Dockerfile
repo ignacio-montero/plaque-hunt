@@ -92,6 +92,13 @@ COPY --from=builder /app/node_modules/tesseract.js-core ./node_modules/tesseract
 COPY --from=builder /app/tessdata ./tessdata
 ENV TESSERACT_CACHE_PATH=/app/tessdata
 
+# sharp (image preprocessing for OCR) — native .node binaries + libvips live in
+# platform packages under @img/ that the standalone tracer can drop, same trap
+# as the tesseract wasm above. Copy both packages wholesale; built on
+# linux/amd64 these are the linux-x64 binaries the runtime needs.
+COPY --from=builder /app/node_modules/sharp ./node_modules/sharp
+COPY --from=builder /app/node_modules/@img ./node_modules/@img
+
 # Pre-seeded DB snapshot (copied into the volume on first boot only).
 COPY --from=builder /app/seed ./seed
 

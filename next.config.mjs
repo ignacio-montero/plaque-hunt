@@ -12,8 +12,11 @@ const nextConfig = {
       { protocol: "https", hostname: "openplaques.org" },
     ],
   },
-  // tesseract.js runs server-side in the /api/capture route (Node runtime).
-  serverExternalPackages: ["tesseract.js"],
+  // tesseract.js + sharp run server-side in the /api/capture route (Node
+  // runtime). Both load native/wasm assets from disk — keep them external so
+  // the bundler never tries to inline them (the Dockerfile copies the full
+  // packages into the runtime image).
+  serverExternalPackages: ["tesseract.js", "sharp"],
 };
 
 export default nextConfig;

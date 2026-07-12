@@ -21,8 +21,10 @@ Backend (all under `app/api/**`, `lib/`, `prisma/seed.ts`):
 - **Routes**: `GET /api/plaques`, `GET /api/plaques/[id]`, `POST /api/capture` (OCR + match, no
   write), `POST /api/capture/confirm` (201 / 409 already-captured), `DELETE /api/capture/[id]`,
   `GET /api/tracker`, plus `GET /api/uploads/[file]` to serve stored photos.
-- **Helpers**: `lib/ocr.ts` (Tesseract.js), `lib/matching.ts` (haversine proximity 150 m radius +
-  fuse.js), `app/api/_lib/photoStore.ts` (temp token → promote on confirm).
+- **Helpers**: `lib/imagePrep.ts` (sharp: EXIF-rotate, blue-disc crop, CLAHE), `lib/ocr.ts`
+  (Tesseract.js multi-pass over the variants), `lib/matching.ts` (haversine proximity 150 m radius +
+  token-level fuzzy scorer — text ranks, distance only tie-breaks), `app/api/_lib/photoStore.ts`
+  (temp token → promote on confirm).
 - **Note:** `photo_path` is a served URL (`/api/uploads/<file>`), not a filesystem path — Next only
   serves static from `/public`. API_SPEC reflects this. Usable directly as `<img src>`.
 

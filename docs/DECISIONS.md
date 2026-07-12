@@ -2,6 +2,33 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-12 — v1.0.3: text-first plaque recognition (the OCR-accuracy risk, retired)
+Field feedback: candidates ranked by distance, not photo content. Diagnosis on the two REAL
+captured photos (pulled from the box; Turing night shot scored 0.01, Ben-Gurion weathered plaque
+0.00): three compounding failures —
+1. **iPhone JPEGs store pixels sideways** (EXIF orientation flag) — browsers rotate, Tesseract
+   doesn't; it OCR'd rotated text.
+2. **The plaque is ~15% of the frame** — surrounding brickwork OCRs as dash-garbage that drowned
+   the real words.
+3. **Whole-string fuse.js matching** scored real fragments ("Pidncerof -Smputer Science Was born
+   here") ~0 against every inscription → ranking silently degraded to distance-only.
+Fixes (tuned empirically on the real photos; experiments in DECISIONS history):
+- **`lib/imagePrep.ts`** (new, uses `sharp`): EXIF-rotate → find the blue disc as the *densest*
+  blue-pixel cluster (integral-image window sweep; plain bbox gets inflated by stray blue like
+  windows) → grown-bbox square crop → grayscale + normalise and CLAHE variants + full-frame
+  fallback (also covers non-blue schemes).
+- **`lib/ocr.ts`**: OCRs all variants with one worker (PSM SINGLE_BLOCK — AUTO returns empty on
+  crops) and returns the UNION of texts; garbage from weak variants is inert downstream.
+- **`lib/matching.ts`**: replaced fuse.js with a token-level scorer — per-word Levenshtein
+  (threshold 0.7 admits field misreads: tireaker→breaker, urion→gurion), digit-repair for years
+  (i954→1954), name tokens ×2, boilerplate stopwords ×0.15. **Text decides rank; distance only
+  breaks ties** and orders the no-text fallback (unchanged fallback semantics).
+Results on the real photos: Turing 0.01 → **0.76**; Ben-Gurion 0.00 → **0.30**, and Ben-Gurion
+ranks **#1 text-only against all 2078 plaques** (no location). Regression tests pin the exact
+field OCR strings (tests/fieldRegression.test.ts); imagePrep has synthetic-image tests. Suite:
+107 passing. fuse.js removed. sharp's native binaries are COPY'd wholesale into the runner image
+(same standalone-tracer trap as the tesseract wasm — see 1.0.1).
+
 ## 2026-07-11 — v1.0.2: map perf — canvas markers + slim gzipped payload
 Phone field-test feedback: map first-paint took seconds and pinch-zoom lagged. Causes + fixes:
 - **2078 DOM markers → 1 canvas.** Every plaque was an individual `divIcon` DOM node, all

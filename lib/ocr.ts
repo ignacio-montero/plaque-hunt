@@ -4,7 +4,8 @@
 // If match quality proves too poor on real photos, swap this for Google Cloud
 // Vision — the matching layer downstream doesn't change.
 
-import { createWorker } from "tesseract.js";
+import { createWorker, PSM } from "tesseract.js";
+import { buildOcrVariants } from "@/lib/imagePrep";
 
 // --- Container/runtime knobs (all optional; dev behaviour unchanged if unset) --
 // TESSERACT_CACHE_PATH: directory holding a pre-warmed `eng.traineddata`. In the
@@ -65,6 +66,15 @@ function withOcrTimeout<T>(job: Promise<T>): Promise<T> {
 /**
  * Run OCR over the raw bytes of an uploaded image and return the extracted
  * text, collapsed to a single-spaced string. Returns "" if nothing readable.
+ *
+ * Multi-pass: the image is preprocessed into a few variants (EXIF-rotated
+ * blue-disc crop, CLAHE crop, normalised full frame — see lib/imagePrep.ts)
+ * and each is OCR'd with one shared worker. The returned text is the UNION of
+ * all passes: variants read different words best, and the token-based matcher
+ * (lib/matching.ts) ignores unmatched garbage, so unioning only adds recall.
+ * PSM SINGLE_BLOCK measured far better than AUTO on plaque crops (AUTO often
+ * returns empty).
+ *
  * At most MAX_CONCURRENT_OCR jobs run at once; extra callers queue.
  * Throws (rather than hangs) if the worker fails or exceeds OCR_TIMEOUT_MS —
  * /api/capture turns that into a proper `ocr_failed` response.
@@ -75,6 +85,7 @@ export async function runOcr(image: Buffer): Promise<string> {
   try {
     return await withOcrTimeout(
       (async () => {
+        const variants = await buildOcrVariants(image);
         worker = await createWorker(
           "eng",
           undefined,
@@ -84,10 +95,18 @@ export async function runOcr(image: Buffer): Promise<string> {
             ? { cachePath: process.env.TESSERACT_CACHE_PATH }
             : {},
         );
-        const {
-          data: { text },
-        } = await worker.recognize(image);
-        return normaliseOcrText(text);
+        await worker.setParameters({
+          tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+        });
+        const texts: string[] = [];
+        for (const v of variants) {
+          const {
+            data: { text },
+          } = await worker.recognize(v.image);
+          const cleaned = normaliseOcrText(text);
+          if (cleaned) texts.push(cleaned);
+        }
+        return texts.join(" ");
       })(),
     );
   } finally {

@@ -10,6 +10,15 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 const createWorkerMock = vi.fn();
 vi.mock("tesseract.js", () => ({
   createWorker: (...args: unknown[]) => createWorkerMock(...args),
+  PSM: { SINGLE_BLOCK: "6" },
+}));
+
+// Preprocessing is exercised by tests/imagePrep.test.ts against real images;
+// here it would choke on fake buffers, so return the input as one variant.
+vi.mock("@/lib/imagePrep", () => ({
+  buildOcrVariants: vi.fn(async (image: Buffer) => [
+    { tag: "test", image },
+  ]),
 }));
 
 afterEach(() => {
@@ -26,6 +35,7 @@ async function freshOcr() {
 
 function workerReturning(text: string) {
   return {
+    setParameters: vi.fn().mockResolvedValue(undefined),
     recognize: vi.fn().mockResolvedValue({ data: { text } }),
     terminate: vi.fn().mockResolvedValue(undefined),
   };
@@ -42,6 +52,7 @@ describe("runOcr", () => {
     vi.stubEnv("OCR_TIMEOUT_MS", "50");
     const terminate = vi.fn().mockResolvedValue(undefined);
     createWorkerMock.mockResolvedValue({
+      setParameters: vi.fn().mockResolvedValue(undefined),
       recognize: vi.fn().mockReturnValue(new Promise(() => {})), // wedged
       terminate,
     });
@@ -60,6 +71,7 @@ describe("runOcr", () => {
 
   it("propagates worker errors (route turns these into ocr_failed)", async () => {
     createWorkerMock.mockResolvedValue({
+      setParameters: vi.fn().mockResolvedValue(undefined),
       recognize: vi.fn().mockRejectedValue(new Error("wasm exploded")),
       terminate: vi.fn().mockResolvedValue(undefined),
     });
@@ -89,6 +101,7 @@ describe("runOcr", () => {
     vi.stubEnv("OCR_MAX_CONCURRENCY", "1");
     createWorkerMock
       .mockResolvedValueOnce({
+        setParameters: vi.fn().mockResolvedValue(undefined),
         recognize: vi.fn().mockReturnValue(new Promise(() => {})),
         terminate: vi.fn().mockResolvedValue(undefined),
       })

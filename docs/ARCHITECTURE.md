@@ -57,7 +57,13 @@ No `User` entity in v1 — single implicit user, no auth.
 
 - Single Next.js app: pages/components for map + upload + tracker, API routes for `/api/plaques`, `/api/capture` (handles OCR + matching), `/api/tracker`.
 - Leaflet requires dynamic import with `ssr: false` in Next.js (it touches `window`).
-- OCR + matching runs server-side inside the `/api/capture` route: receive photo → run Tesseract.js → query candidate plaques by geo radius (if lat/lng present) → fuzzy string match (e.g. `fuse.js` or similar) OCR text against candidates' inscription text → return ranked candidates to client for confirmation.
+- OCR + matching runs server-side inside the `/api/capture` route: receive photo → preprocess with
+  `sharp` (EXIF-rotate, detect + crop the blue disc, contrast-normalise/CLAHE — `lib/imagePrep.ts`)
+  → Tesseract.js over the variants (PSM single-block; texts unioned) → query candidate plaques by geo
+  radius (if lat/lng present) → token-level fuzzy match (per-word Levenshtein, name-weighted, stopwords
+  down-weighted — `lib/matching.ts`; replaced whole-string fuse.js, which scored ~0 on real field OCR)
+  → return ranked candidates for confirmation. Text decides rank; distance only breaks ties / orders
+  the no-text fallback.
 - Confirmed capture is a second API call (`/api/capture/confirm`) that writes the Capture row after the user picks/corrects the match.
 ### Seed script (two-pass — verified against the 2025-12-15 London dump)
 
