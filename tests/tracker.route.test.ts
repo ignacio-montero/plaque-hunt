@@ -58,16 +58,20 @@ describe("GET /api/tracker", () => {
     expect(labels).toEqual(["1790s", "1810s", "Unknown"]);
   });
 
-  it("by_profession groups null profession into 'Unknown'", async () => {
+  it("by_profession generalises roles to broad categories; null -> 'Unknown'", async () => {
     await seedPlaques();
-    await capture("opl-ada"); // Mathematician
-    await capture("opl-babbage"); // Mathematician
-    await capture("opl-unknown"); // null
+    await capture("opl-ada"); // Mathematician -> Scientist
+    await capture("opl-babbage"); // Mathematician -> Scientist
+    await capture("opl-dickens"); // Writer -> Writer
+    await capture("opl-unknown"); // null -> Unknown
 
     const res = await GET();
     const { by_profession } = await res.json();
     const map = Object.fromEntries(by_profession.map((b: any) => [b.label, b.count]));
-    expect(map["Mathematician"]).toBe(2);
+    // "Mathematician" is folded into the broad "Scientist" category.
+    expect(map["Scientist"]).toBe(2);
+    expect(map["Mathematician"]).toBeUndefined();
+    expect(map["Writer"]).toBe(1);
     expect(map["Unknown"]).toBe(1);
   });
 

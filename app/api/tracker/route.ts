@@ -1,9 +1,12 @@
 // GET /api/tracker — aggregates for the tracker page. Breakdowns count CAPTURED
 // plaques only; unknown gender/birth-year fall into an "Unknown" bucket rather
-// than being dropped. Profession is grouped to the top N + "Other" (raw role
-// has a long tail of ~800+ values). See docs/API_SPEC.md.
+// than being dropped. Profession is generalised from the raw role to a broad
+// category (e.g. "Prime Minister of Israel" -> "Politician") and then grouped to
+// the top N + "Other" (raw role has a long tail of ~850 values). See
+// docs/API_SPEC.md and lib/professionCategory.ts.
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { categoriseProfession } from "@/lib/professionCategory";
 
 export const runtime = "nodejs";
 
@@ -40,11 +43,15 @@ type CapturedPlaque = {
   birthYear: number | null;
 };
 
-/** Top-N professions by captured count, remainder folded into "Other". */
+/**
+ * Top-N broad profession categories by captured count, remainder folded into
+ * "Other". Raw roles are generalised via categoriseProfession first, so e.g.
+ * "Prime Minister of Israel" and "MP" both land in "Politician".
+ */
 function byProfession(rows: CapturedPlaque[]): Bucket[] {
   const counts = new Map<string, number>();
   for (const r of rows) {
-    const label = r.profession?.trim() || "Unknown";
+    const label = categoriseProfession(r.profession);
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
 

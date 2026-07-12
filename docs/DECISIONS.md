@@ -2,6 +2,26 @@
 
 Running log of notable decisions + rationale. Newest first.
 
+## 2026-07-12 — Tracker "By profession" generalised to broad categories
+The tracker's profession breakdown showed raw `primary_role_name` values, which are
+extremely granular (~853 distinct, e.g. "Prime Minister of Israel", "Nuclear physicist",
+"Portrait painter") — the top-12 list was dominated by near-duplicate niche roles and read
+poorly. Added `lib/professionCategory.ts`: `categoriseProfession(raw)` maps a raw role onto a
+small ordered set of broad buckets (Politician, Royalty, Religion, Military, Writer, Artist,
+Musician, Performer, Scientist, Engineer, Medicine, Architect, Academic, Law, Business, Sport,
+Explorer, Activist) via whole-word keyword matching. `app/api/tracker/route.ts` `byProfession`
+now generalises before counting, so "Prime Minister of Israel" and "MP" both land in "Politician".
+- **Ordering encodes precedence** — the first matching category wins, so distinctive roles are
+  listed before ambiguous ones (e.g. "prime minister" resolves to Politician before a bare
+  "minister" could fall through to Religion).
+- **Whole-word regexes** (not substring) so "art" doesn't match inside unrelated words.
+- **Unmatched roles keep their own label** (not force-folded to "Other") so nothing is silently
+  discarded; the existing top-12 + "Other" folding still applies on top.
+- **Query-time, not seed-time** — no schema change, no re-seed (seed is network-heavy and the DB
+  ships baked into the image). If the category set needs tuning, edit the one file.
+Tests: `tests/professionCategory.test.ts` (+7) plus an updated tracker route assertion; full suite
+116 passing.
+
 ## 2026-07-12 — v1.0.4: faster recognition via early-exit OCR (options A+B)
 Recognition was correct but slow (~5s clear / ~14s weathered on the N95 — three
 sequential Tesseract passes, the 1600px full-frame pass being 60–85% of it).
