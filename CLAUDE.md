@@ -7,7 +7,7 @@ on a multi-user native app.
 
 ## Current state
 **v1 core loop is built, deployed, and being field-tested on real photos.** Full `npm run build`
-passes; `npm test` = **109 Vitest tests, all passing**; `npx tsc --noEmit` clean. DB seeded. Live on
+passes; `npm test` = **116 Vitest tests, all passing**; `npx tsc --noEmit` clean. DB seeded. Live on
 the homelab (see Deployment). Recognition has been through a real-photo hardening cycle
 (v1.0.1–v1.0.4): OCR wasm fix, text-first recognition (sharp image prep + token matcher — both real
 field photos rank #1), map perf (canvas markers + gzip), and early-exit OCR (clear plaques ~2×
@@ -37,7 +37,9 @@ Frontend (all under `app/` + `components/`, no UI framework — plain CSS in `ap
 - `app/capture/page.tsx` → `components/CaptureFlow.tsx` — file picker + `navigator.geolocation`,
   POST `/api/capture`, ranked-candidate confirm/correct (+ `components/ManualSearch.tsx`),
   POST `/api/capture/confirm`, 409/422 handling, DELETE undo.
-- `app/tracker/page.tsx` → `components/TrackerView.tsx` — totals + profession/decade/gender bars.
+- `app/tracker/page.tsx` → `components/TrackerView.tsx` — totals + profession/decade/gender bars. The
+  "By profession" bars show **broad categories** (Politician, Scientist, …), not raw roles: the tracker
+  route generalises each `primary_role_name` via `lib/professionCategory.ts` before counting.
 - `components/Nav.tsx` (in `app/layout.tsx`), `components/types.ts` (API shapes).
 
 Canonical docs live in `docs/`:

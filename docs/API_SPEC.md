@@ -175,6 +175,9 @@ Aggregates for the tracker page.
 }
 ```
 - Breakdowns count **captured** plaques only.
-- `by_profession` is grouped to the top ~10–12 roles + an "Other" bucket (raw role has ~853 distinct values).
+- `by_profession` generalises each raw role to a broad category (e.g. "Prime Minister of Israel" →
+  "Politician", "Nuclear physicist" → "Scientist") via `lib/professionCategory.ts`, then groups to the
+  top ~12 categories + an "Other" bucket. Generalising is what makes the breakdown readable — the raw
+  role field has ~853 distinct values. A role matching no category keeps its own label.
 - `by_birth_decade` and `by_gender` are populated from the seed enrichment pass; entries with unknown
   gender/birth-year fall into an "Unknown" bucket rather than being dropped.
