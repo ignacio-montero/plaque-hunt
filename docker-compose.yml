@@ -14,7 +14,7 @@
 #    survives container recreate/update.
 services:
   plaque-hunter:
-    image: ghcr.io/ignacio-montero/plaque-hunt:1.0.0   # pin a version; never :latest
+    image: ghcr.io/ignacio-montero/plaque-hunt:1.1.0   # pin a version; never :latest
     container_name: plaque-hunter
     restart: unless-stopped
     # Env is inlined (no secrets) — an `env_file: .env` would be absent after a

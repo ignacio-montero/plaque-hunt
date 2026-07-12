@@ -50,8 +50,9 @@ Canonical docs live in `docs/`:
 - [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) — status + ordered next steps
 
 ## Deployment (homelab) — LIVE
-**Deployed 2026-07-11.** Running on the homelab at **http://<homelab-tailnet-ip>:3001** (tailnet only),
-image `ghcr.io/ignacio-montero/plaque-hunt:1.0.0`, container healthy, data on named volume
+**Deployed 2026-07-11; latest 1.1.0 (2026-07-12).** Running on the homelab at
+**http://<homelab-tailnet-ip>:3001** (tailnet only),
+image `ghcr.io/ignacio-montero/plaque-hunt:1.1.0`, container healthy, data on named volume
 `plaque-hunter-data` (`homelab_`-prefixed on the box). Logged in the homelab repo's
 `docs/decisions.md` (2026-07-11). Bundle files at repo root: `Dockerfile` (multi-stage, Next.js
 standalone, non-root), `docker-entrypoint.sh` (first-boot seeds volume from a baked-in DB snapshot,
