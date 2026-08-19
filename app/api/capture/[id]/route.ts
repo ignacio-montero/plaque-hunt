@@ -3,13 +3,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deleteStoredPhoto } from "@/app/api/_lib/photoStore";
+import { requireWriteAuth } from "@/app/api/_lib/writeAuth";
 
 export const runtime = "nodejs";
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const denied = requireWriteAuth(req);
+  if (denied) return denied;
+
   const { id } = await params;
 
   const capture = await prisma.capture.findUnique({

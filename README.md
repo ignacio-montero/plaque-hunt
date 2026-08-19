@@ -61,15 +61,51 @@ so it's safe to re-run.
 ### Testing
 
 ```bash
-npm test               # Vitest — 116 tests (API contract, matching, uploads, tracker)
+npm test               # Vitest — 123 tests (API contract, matching, uploads, tracker, auth)
 ```
 
 ## Using it in the field (on your phone)
 
-The app runs on your laptop; your phone reaches it via an **HTTPS tunnel** (e.g. `ngrok http 3000`).
-A tunnel is required rather than a LAN IP because mobile browsers only allow `navigator.geolocation`
-in a secure (HTTPS) context. Don't deploy to serverless (Vercel) — SQLite + local photo storage need
-a persistent filesystem.
+Mobile browsers only expose `navigator.geolocation` in a **secure (HTTPS) context**, so a phone
+can't use a plain LAN address — it needs HTTPS. The deployed setup gets this from a Tailscale
+`serve` proxy, which issues a real certificate and stays reachable **only from the owner's own
+devices**.
+
+If you instead reach it through a public HTTPS tunnel, read the security model below first: a
+tunnel is open to the whole internet, not just your phone.
+
+Don't deploy to serverless (Vercel) — SQLite + local photo storage need a persistent filesystem.
+
+## Security model
+
+Worth stating plainly, because the design makes an assumption that a reader should be able to
+check rather than have to infer.
+
+**There are no user accounts.** This is a single-user app. Captures have no owner, so a capture
+id is the only thing identifying a record. Its intended deployment is behind a private Tailscale
+tailnet, where the network is the authorisation boundary and that design is fine.
+
+That assumption breaks the moment the app is reachable another way. So the three mutating
+endpoints — create a capture, confirm one, delete one — accept an optional shared secret:
+
+```bash
+PLAQUE_KEY="$(openssl rand -base64 32)"   # then send it as the X-Plaque-Key header
+```
+
+- **Unset** (the default): mutating routes are open. Correct for localhost and for tailnet-only
+  use, and it keeps `npm run dev` and the tests frictionless.
+- **Set**: every create/confirm/delete must present a matching `X-Plaque-Key`, compared in
+  constant time. Reads stay open — they serve only public plaque data.
+
+**Set it before exposing the app through any tunnel or public host.** Without it, anyone who
+learns the URL can delete the whole collection, and `POST /api/capture` will run OCR on
+arbitrary uploads — an unauthenticated way to burn CPU. In production with no key set, the
+server logs a warning at first use.
+
+**What a multi-user version would need instead:** real accounts, an `ownerId` on every capture,
+and authorisation enforced per-query rather than per-route — plus rate limiting on the OCR
+endpoint. The shared secret is deliberately the smallest thing that closes the gap for a
+single-user deployment, not a substitute for that.
 
 ## Project structure
 

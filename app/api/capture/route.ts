@@ -13,6 +13,7 @@ import {
 } from "@/lib/matching";
 import { storeTempPhoto } from "@/app/api/_lib/photoStore";
 import { isAcceptedImage } from "@/lib/imageType";
+import { requireWriteAuth } from "@/app/api/_lib/writeAuth";
 
 // Tesseract.js + filesystem writes need the Node runtime, not the Edge one.
 export const runtime = "nodejs";
@@ -28,6 +29,9 @@ function parseCoord(value: FormDataEntryValue | null): number | null {
 }
 
 export async function POST(req: Request) {
+  const denied = requireWriteAuth(req);
+  if (denied) return denied;
+
   let form: FormData;
   try {
     form = await req.formData();

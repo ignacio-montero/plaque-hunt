@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { promoteTempPhoto } from "@/app/api/_lib/photoStore";
+import { requireWriteAuth } from "@/app/api/_lib/writeAuth";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,9 @@ function serializeCapture(row: {
 }
 
 export async function POST(req: Request) {
+  const denied = requireWriteAuth(req);
+  if (denied) return denied;
+
   let body: ConfirmBody;
   try {
     body = (await req.json()) as ConfirmBody;
