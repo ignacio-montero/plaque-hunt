@@ -11,7 +11,7 @@ import path from "node:path";
 
 /** Wikimedia etiquette: identify the client + a contact address. */
 export const USER_AGENT =
-  "BluePlaqueHunter/0.1 (personal prototype; <contact-removed>)";
+  "BluePlaqueHunter/0.1 (https://github.com/ignacio-montero/plaque-hunt)";
 
 const CACHE_DIR = path.join(process.cwd(), "data", "cache");
 

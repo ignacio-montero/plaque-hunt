@@ -29,7 +29,7 @@ services:
     ports:
       # tailnet-only: http://<homelab-tailnet-ip>:3001
       # host port 3001 is free per inventory.md (3000=Homepage, 8080=Dozzle taken).
-      - "<homelab-tailnet-ip>:3001:3000"
+      - "${TAILNET_IP}:3001:3000"
     volumes:
       # Single named volume holds the SQLite DB, uploaded photos, and the
       # temp-upload staging dir (all live under /app/data). Survives recreate.

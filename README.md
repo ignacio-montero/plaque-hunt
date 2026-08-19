@@ -37,7 +37,7 @@ OCR on weathered plaque text is expected to be imperfect.
 | Database | SQLite via Prisma |
 | Map | Leaflet + OpenStreetMap tiles |
 | OCR | Tesseract.js (server-side) |
-| Matching | fuse.js fuzzy match + haversine proximity |
+| Matching | custom token-level Levenshtein scorer + haversine proximity |
 | Data | [Open Plaques](https://openplaques.org) London dataset (public domain, PDDL) |
 
 Chosen to be free, key-less, and fast to build solo. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -61,7 +61,7 @@ so it's safe to re-run.
 ### Testing
 
 ```bash
-npm test               # Vitest — 59 tests (API contract, matching, uploads, tracker)
+npm test               # Vitest — 116 tests (API contract, matching, uploads, tracker)
 ```
 
 ## Using it in the field (on your phone)
@@ -92,4 +92,7 @@ capture, and anti-cheat. v1 deliberately validates the core loop for a single us
 ## Data & license
 
 Plaque data © [Open Plaques](https://openplaques.org), released into the public domain (PDDL).
-Application code: personal project — no license granted yet.
+Portraits are served from [Wikimedia Commons](https://commons.wikimedia.org); individual
+images remain under their own licences (many are CC BY-SA) and belong to their authors.
+
+Application code: released under the [MIT License](LICENSE).

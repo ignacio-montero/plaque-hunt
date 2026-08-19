@@ -49,33 +49,21 @@ Canonical docs live in `docs/`:
 - [docs/DECISIONS.md](docs/DECISIONS.md) — decision log
 - [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) — status + ordered next steps
 
-## Deployment (homelab) — LIVE
-**Deployed 2026-07-11; latest 1.1.0 (2026-07-12).** Running on the homelab at
-**http://<homelab-tailnet-ip>:3001** (tailnet only),
-image `ghcr.io/ignacio-montero/plaque-hunt:1.1.0`, container healthy, data on named volume
-`plaque-hunter-data` (`homelab_`-prefixed on the box). Logged in the homelab repo's
-`docs/decisions.md` (2026-07-11). Bundle files at repo root: `Dockerfile` (multi-stage, Next.js
-standalone, non-root), `docker-entrypoint.sh` (first-boot seeds volume from a baked-in DB snapshot,
-never re-seeds), `docker-compose.yml` (reference; the live copy is in the homelab repo at
-`services/plaque-hunter/`), `.env.example`, `.dockerignore`, `Makefile` + `scripts/publish.sh`,
-`DEPLOY.md`.
-- **GHCR package is PRIVATE** — the box is `docker login`'d to ghcr.io (read-scoped token). A new
-  machine pulling/pushing must `docker login ghcr.io` first.
-- **Publishing requires `docker buildx`** — the build machine (arm64 Mac via Colima) cross-builds
-  `linux/amd64` for the N95 with buildx + QEMU. Install once: `brew install docker-buildx`, symlink
-  into `~/.docker/cli-plugins/`, `docker buildx create --name plaque-builder --driver docker-container --use`.
-  Without it `make publish` fails ("unknown command: docker buildx").
-- **Seed ships baked into the image, not seeded on the box** (seed is network-heavy). The publisher
-  must have a locally-seeded `prisma/dev.db` present — it's gitignored, so it lives only in the local
-  build context, never git/CI. `make publish` from a machine with the seeded DB.
-- **Updates are a one-loop path:** bump VERSION → `make publish VERSION=x.y.z` → bump the tag in the
-  homelab repo's `services/plaque-hunter/docker-compose.yml` → commit/push → `ssh homelab 'cd ~/homelab
-  && git pull && docker compose pull plaque-hunter && docker compose up -d plaque-hunter'`.
-- **HTTPS for mobile capture — DONE (2026-07-11):** `tailscale serve` fronts the app at
-  **https://homelab.<tailnet>.ts.net** (tailnet-only, Let's Encrypt cert). This gives the secure
-  context mobile `navigator.geolocation` needs. Plain `http://…:3001` still works too. Managed on the
-  box (needs root): `ssh -t homelab 'sudo tailscale serve status'`; rollback `… serve --https=443 off`.
-  Logged in the homelab repo's `docs/decisions.md` + `network.md`.
+## Deployment
+
+Containerised and deployed to a private always-on Linux Docker host, reached over a
+Tailscale tailnet (not exposed to the LAN or the public internet). Bundle files at repo
+root: `Dockerfile` (multi-stage, Next.js standalone, non-root), `docker-entrypoint.sh`
+(first-boot seeds the volume from a baked-in DB snapshot, never re-seeds),
+`docker-compose.yml` (reference copy — bind the published port to a specific host IP, never
+`0.0.0.0`), `.env.example`, `.dockerignore`, `Makefile` + `scripts/publish.sh`.
+
+Images are pinned, versioned, and pulled from GHCR; the host pulls, never builds. The seed
+DB ships baked into the image (seeding is network-heavy) and the publisher needs a locally
+seeded `prisma/dev.db`, which is gitignored and never reaches git or CI.
+
+> **Operator runbook** (host specifics, update loop, rollback) lives in the private infra
+> repo at `services/plaque-hunter/DEPLOY.md` — deliberately not published here.
 
 ## Key gotchas
 - **Next.js standalone tracer drops runtime-fs-loaded assets.** It only follows import graphs —
